@@ -3,13 +3,21 @@
 class Aircraft():
     def __init__(self, tailnumber):
         self.reg = tailnumber
+        self._name = ''
+
+    @property
+    def name(self):
+        return self._name
+
+    @name.setter
+    def name(self, value = ''):
+        #check if it is the correct length
+        self._name = value
 
     def setProperty(self, which, value):
         #Right now all these functions are being called
         switcher = {
                 'name'  : self.__setNameProperty(value),
-                'weight' : self.__setWeightProperty(value),
-                'cruising-speed' : self.__setCruisingSpeedProperty(value),
                 'cruising-altitude' : self.__setCruisingAltitudeProperty(value)
                 }
         return switcher.get(which, 'error')
