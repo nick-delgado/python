@@ -24,6 +24,7 @@ class Aircraft():
     @cruising_speed.setter
     def cruising_speed(self, value = None):
         #check if it is the correct length
+        if (value < 0): raise ValueError('Speed cannot be less than zero')
         self._cruising_speed = value
 
 
@@ -44,3 +45,12 @@ class Aircraft():
     def weight(self, value = None):
         #check if it is the correct length
         self._weight = value
+
+    @property
+    def capacity(self):
+        return self._capacity
+
+    @capacity.setter
+    def capacity(self, value = None):
+        #check if it is the correct length
+        self._capacity = value
