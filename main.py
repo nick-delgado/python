@@ -3,11 +3,13 @@ from airport import Airport
 from wind import Wind
 from aircraft import Aircraft
 
-N32RT = Aircraft()
+N32RT = Aircraft('N32RT')
 N32RT.name = "jetone"
 N32RT.cruising_speed = 430
 
 CHA = Airport(35.11,-85.10)
+cha_weather = CHA.weather()
+print(cha_weather)
 DEN = Airport(32.55, -87.21)
 
 CHA_weather = Wind(CHA.geopoint).getCurrent()
