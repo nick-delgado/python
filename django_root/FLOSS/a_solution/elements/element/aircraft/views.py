@@ -1,5 +1,5 @@
 from django.shortcuts import render
-from aircraft import Aircraft
+#from models import Aircraft
 from rest_framework import viewsets
 from aircraft.serializers import AircraftSerializer
 
