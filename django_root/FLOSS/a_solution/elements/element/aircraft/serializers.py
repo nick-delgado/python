@@ -1,4 +1,4 @@
-from models import Aircraft
+from aircraft.models import Aircraft
 from rest_framework import serializers
 
 class AircraftSerializer(serializers.HyperlinkedModelSerializer):
