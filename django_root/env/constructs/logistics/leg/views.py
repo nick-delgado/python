@@ -4,7 +4,8 @@ import requests
 
 # Create your views here.
 def home(request):
-    response = requests.get('http://127.0.0.1:8000/aircrafts/')
-    data = response.json()
+    data = ''
+    for i in range(0,1):
+        response = requests.get('http://127.0.0.1:8000/aircrafts/')
 
     return HttpResponse("Hello, world" + str(data))

@@ -29,5 +29,7 @@ router.register(r'aircrafts', views.AircraftViewSet)
 
 urlpatterns = [
         url(r'^', include(router.urls)),
-        url(r'^api_auth/', include('rest_framework.urls', namespace='rest_framework'))
+        url(r'^api_auth/', include('rest_framework.urls', namespace='rest_framework')),
+        url(r'^filter-aircraft/by/(?P<speed>.+)/$', views.AircraftList())
+
 ]
