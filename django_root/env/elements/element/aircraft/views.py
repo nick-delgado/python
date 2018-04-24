@@ -14,9 +14,10 @@ class AircraftViewSet(viewsets.ModelViewSet):
 
 class AircraftList(generics.ListAPIView):
     """
-    API endpoint that allows users to be viewed or edited.
+    API endpoint that allows aircrafts to be selected.
     """
 
     serializer_class = AircraftSerializer
     def get_queryset(self):
-        return Aircraft.objects.filter(cruising_speed__gt=370)
+        speed = self.kwargs['speed']
+        return Aircraft.objects.filter(cruising_speed__gt=speed)
