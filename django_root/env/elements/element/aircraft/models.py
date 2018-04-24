@@ -4,3 +4,4 @@ from django.db import models
 class Aircraft(models.Model):
     tailnumber = models.CharField(max_length=30)
     cruising_speed = models.IntegerField(default=0)
+    cruising_altitude = models.IntegerField(default=3500)
