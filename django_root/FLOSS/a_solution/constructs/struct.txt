@@ -1,8 +1,0 @@
-CONSTRUCTS 
-  |
-  |-- ("Domain") LOGISTICS
-  |
-  |-- ("Domain") OPERATIONS
-  |
-  |
-  |
