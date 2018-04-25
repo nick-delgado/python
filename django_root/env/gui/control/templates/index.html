@@ -6,21 +6,72 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.0/umd/popper.min.js" integrity="sha384-cs/chFZiN24E4KMATLdqdvsezGxaGsi4hLGOzlXwp5UZB1LY//20VyM2taTB4QvJ" crossorigin="anonymous"></script>
 <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.0/js/bootstrap.min.js" integrity="sha384-uefMccjFJAIv6A+rW+L4AHf99KvxDjWSu1z9VI8SKNVmz4sk7buKt/6v9KI65qnm" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/vue@2.5.16/dist/vue.js"></script>
+<script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+
+  <script>
+Vue.mixin({ delimiters: ['[[',']]'] })
+  </script>
+
 {% endblock %}
 {% block content %}
 <h2>Hello</h2>
 <h3>Hi</h3>
 
 <div id="app">
-  [[ message ]] 
+  <p>[[ message ]]</p>
+  <input v-model="message">
+
+  <br />
+  <ol>
+    <aircraft-item
+         v-for="craft in aircrafts"
+         v-bind:aircraft="craft"
+         v-bind:key="craft.id">
+    </aircraft-item>
+  </ol>
 </div>
+
+
+<div id="app2">
+  <h2>Aircrafts in DB</h2>
+  <br />
+  [[ aircraftlists ]]
+</div>
+
+  <script>
+Vue.component('aircraft-item', {
+  props: ['aircraft'],
+  template: '<li>[[ aircraft.text ]]</li>'
+})
+  </script>
   <script>
 var app = new Vue({
-  delimiters: ['[[',']]'],
   el: '#app',
   data: {
-    message: 'Hello Vue'
+    message: 'Hello Vue',
+    aircrafts: [
+      { id: 0, text: 'NR32T' },
+      { id: 1, text: 'WM54J' },
+      { id: 2, text: 'NA13M' }
+    ]
   }
 })
   </script>
-{% endblock %}
+  <script>
+var app2 = new Vue({
+  el: '#app2',
+  data () {
+    return {
+      aircraftlists: null
+    }
+  },
+  mounted () {
+    axios.get('http://127.0.0.1:8001/aircrafts/?format=json')
+      .then(response => (this.aircraftlists = response))
+  }
+})
+  </script>
+
+  
+  {% endblock %}
+
