@@ -4,3 +4,5 @@ from django.db import models
 class Airport(models.Model):
     code = models.CharField(max_length=5)
     name = models.CharField(max_length=50)
+    lat = models.FloatField()
+    lon = models.FloatField()
