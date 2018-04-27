@@ -99,6 +99,9 @@ class E6B(object):
         lon2 = math.radians(starting_point.longitude) + math.atan2(math.sin(math.radians(heading))*math.sin(distance/R)*math.cos(math.radians(starting_point.latitude)), math.cos(distance/R)-math.sin(math.radians(starting_point.latitude))*math.sin(lat2))
         return Point(math.degrees(lat2), math.degrees(lon2))
 
+    def min_leg_fuel_req(self, ac_fuel_burn, ac_climb_burn, ac_taxi_fuel, ac_climb_time, leg_flight_time):
+        return ac_taxi_fuel + ac_climb_burn + math.ceil(ac_fuel_burn * ((leg_flight_time - ac_climb_time)/60))
+
 def mins_to_hr_min(mins):
     hrs_frac = mins/60
     hr = math.floor(hrs_frac)
@@ -132,6 +135,7 @@ AC.climb_time = 25
 AC.climb_fuel = 50
 AC.climb_dist = 87
 
+
 e6b = E6B()
 
 course = e6b.true_course(AP1.coord, AP2.coord)
@@ -143,5 +147,7 @@ gs = e6b.ground_speed(course, AC.cruising_speed, WIND_heading, WIND_speed, true_
 
 flight_time = e6b.flight_time(distance.nm, AC.climb_dist, AC.climb_time, gs, 0, 0, 8)
 (hour, mins) = mins_to_hr_min(flight_time)
-flight_time_hr = math.floor(flight_time)
-flight_time_min = (flight_time % 1) * 60
+min_fuel_required = e6b.min_leg_fuel_req(AC.cruising_fuel_burn_gph, AC.climb_fuel, AC.taxi_fuel, AC.climb_time, flight_time)
+fuel_required = AC.cruising_fuel_reserve + min_fuel_required
+fuel_required_weight = fuel_required * 6.84
+#max_payload = AC.max_weight - AC.empty_weight - P.weight - fuel_required_weight

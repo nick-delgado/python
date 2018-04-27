@@ -17,6 +17,12 @@ class Aircraft(models.Model):
     max_fuel_capacity = models.IntegerField(default=130)
     cruising_fuel_burn_gph = models.IntegerField(default=60)
     cruising_fuel_reserve = models.IntegerField(default=60)
+    empty_weight = models.IntegerField(default=2000)
+    empty_weight_cg = models.IntegerField(default=150)
+    maximum_zero_fuel_weight = models.IntegerField(default=4000)
+    ramp_max_weight = models.IntegerField(default=6000)
+    max_takeoff_weight = models.IntegerField(default=6000)
+    max_landing_weight = models.IntegerField(default=5600)
     # AIRPORT REQUIREMENTS
     # PERFORMANCE
 
