@@ -40,6 +40,54 @@ def calculate_initial_compass_bearing(pointA, pointB):
     return compass_bearing
 
 
+class E6B(object):
+    def __init__(self):
+        pass
+
+    def time(self, speed, distance):
+        return distance / speed
+
+    def speed(self, time, distance):
+        return distance / time
+
+    def distance(self, time, speed):
+        return speed * time
+
+    def true_airspeed(self, indicated_altitude, altimeter_setting, oat_cel, indicated_airspeed):
+        pass
+
+    def cel_to_fahr(self, degrees_cel):
+        return (degrees_cel * 9/5) + 32
+
+    def fahr_to_cel(self, degrees_fahr):
+        return (degrees_fahr - 32) * 5/9
+
+    def nautical_to_statute(self, nautical):
+        return round(nautical * 1.1507794, 2)
+
+    def statute_to_nautical(self, statute):
+        return round(statute / 1.1507794, 2)
+
+    def wind_correction_angle(self, course, true_airspeed, wind_dir, wind_speed):
+        wca = (180/math.pi) * math.asin((wind_speed / true_airspeed) *
+            math.sin(math.pi * (wind_dir - course) / 180))
+        # round to the nearest whole degree
+        return round(wca, 0)
+
+    def true_heading(self, course, true_airspeed, wind_dir, wind_speed):
+        wca = course + (180/math.pi) * math.asin((wind_speed / true_airspeed) *
+            math.sin(math.pi * (wind_dir - course) / 180))
+        # round to the nearest whole degree
+        return round(wca, 0)
+
+    def density_altitude(self, pressure_alt, oat_cel, ISA):
+        # return 145442.16 * (1 - (17.326 * pressure_alt / 459.67 + oat_cel) ** 0.235)
+        return pressure_alt + 118.8 * (oat_cel - ISA)
+
+
+
+WIND_heading = 266
+WIND_speed = 44
 
 AP1 = Airport()
 AP1.code = 'CHA'
@@ -56,6 +104,8 @@ AP2.ALT = 55
 bearing = calculate_initial_compass_bearing(AP1.coord, AP2.coord)
 distance = great_circle(AP1.coord, AP2.coord)
 
+
+
 AC = Aircraft('N32RT')
 AC.cruising_speed = 340
 AC.cruising_altitude = 35000
@@ -66,3 +116,7 @@ AC.taxi_fuel = 4.5
 AC.climb_time = 25
 AC.climb_fuel = 50
 AC.climb_dist = 87
+
+e6b = E6B()
+wca = e6b.wind_correction_angle(bearing, AC.cruising_speed, WIND_heading, WIND_speed)
+true_heading = e6b.true_heading(bearing, AC.cruising_speed, WIND_heading, WIND_speed)
