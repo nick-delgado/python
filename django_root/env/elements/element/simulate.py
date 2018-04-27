@@ -42,15 +42,19 @@ def calculate_initial_compass_bearing(pointA, pointB):
 
 
 AP1 = Airport()
-AP1.LAT = 35.10
-AP1.LONG = -84.10
+AP1.code = 'CHA'
+AP1.LAT = 35.035278
+AP1.LONG = -85.203889
+AP1.ALT = 683
 
 AP2 = Airport()
-AP2.LAT = 32.34
-AP2.LONG = -88.53
+AP2.code = 'SFB'
+AP2.LAT = 28.777778
+AP2.LONG = -81.2375
+AP2.ALT = 55
 
 bearing = calculate_initial_compass_bearing(AP1.coord, AP2.coord)
-
+distance = great_circle(AP1.coord, AP2.coord)
 
 AC = Aircraft('N32RT')
 AC.cruising_speed = 340
