@@ -3,9 +3,8 @@ from aircraft.models import Aircraft
 from geopy.distance import great_circle
 from geopy.distance import EARTH_RADIUS
 from geopy.point import Point
+from importcsv import *
 import math
-
-
 
 class E6B(object):
     def __init__(self):
@@ -80,6 +79,14 @@ class E6B(object):
         total_flight_time = dept_ap_xtra_flt_time + climb_time + dist_travel_time + arrv_ap_xtra_flt_time + global_xtra_flt_time
         return total_flight_time
 
+    def flight_time_alt(self, distance, climb_distance, climb_time, ground_speed, dept_ap_xtra_flt_time, arrv_ap_xtra_flt_time, global_xtra_flt_time):
+        if (distance-climb_distance < 0):
+            dist_travel_time = (distance / (groundspeed/2) ) * 60
+        else:
+            dist_travel_time = ( (distance-climb_distance) / ground_speed ) * 60
+        total_flight_time = dept_ap_xtra_flt_time + climb_time + dist_travel_time + arrv_ap_xtra_flt_time + global_xtra_flt_time
+        return total_flight_time
+
     def midpoint(self, pointA, pointB):
         if pointA.longitude == pointB.longitude: return Point((pointA.latitude+pointB.latitude)/2, pointA.longitude)
         if pointA.latitude == pointB.latitude: return Point(pointA.latitude, (pointA.longitude+pointB.longitude)/2)
@@ -145,9 +152,25 @@ true_heading = wca + course
 true_headingB = e6b.true_heading(course, AC.cruising_speed, WIND_heading, WIND_speed)
 gs = e6b.ground_speed(course, AC.cruising_speed, WIND_heading, WIND_speed, true_heading)
 
+midpoint = e6b.midpoint(AP1.coord, AP2.coord)
+point200m_away = e6b.point_on_path(AP1.coord, course, 200)
+
 flight_time = e6b.flight_time(distance.nm, AC.climb_dist, AC.climb_time, gs, 0, 0, 8)
+
+opt_dist = distance.nm/6
+alt_prof= 0
+for index,row in df.iterrows():
+    dist_diff = math.ceil(opt_dist) - row.dist
+    alt_prof = index
+    if dist_diff <= 0:
+        break
+
+print(df.ix[alt_prof])
+climb_sect_gs = e6b.ground_speed(course, df.ix[alt_prof].tas, WIND_heading, WIND_speed, true_heading)
+climb_sect_time = df.ix[alt_prof].time
+climb_sect_dist = df.ix[alt_prof].
 (hour, mins) = mins_to_hr_min(flight_time)
 min_fuel_required = e6b.min_leg_fuel_req(AC.cruising_fuel_burn_gph, AC.climb_fuel, AC.taxi_fuel, AC.climb_time, flight_time)
 fuel_required = AC.cruising_fuel_reserve + min_fuel_required
-fuel_required_weight = fuel_required * 6.84
+fuel_required_weight = fuel_required * 6.77
 #max_payload = AC.max_weight - AC.empty_weight - P.weight - fuel_required_weight
