@@ -79,13 +79,6 @@ class E6B(object):
         total_flight_time = dept_ap_xtra_flt_time + climb_time + dist_travel_time + arrv_ap_xtra_flt_time + global_xtra_flt_time
         return total_flight_time
 
-    def flight_time_alt(self, distance, climb_distance, climb_time, ground_speed, dept_ap_xtra_flt_time, arrv_ap_xtra_flt_time, global_xtra_flt_time):
-        if (distance-climb_distance < 0):
-            dist_travel_time = (distance / (groundspeed/2) ) * 60
-        else:
-            dist_travel_time = ( (distance-climb_distance) / ground_speed ) * 60
-        total_flight_time = dept_ap_xtra_flt_time + climb_time + dist_travel_time + arrv_ap_xtra_flt_time + global_xtra_flt_time
-        return total_flight_time
 
     def midpoint(self, pointA, pointB):
         if pointA.longitude == pointB.longitude: return Point((pointA.latitude+pointB.latitude)/2, pointA.longitude)
@@ -115,6 +108,17 @@ def mins_to_hr_min(mins):
     minutes = math.ceil( (hrs_frac % 1) * 60 )
     return (hr, minutes)
 
+#OPTIMAL CLIMBING ALTITUDE FOR A CERTAIN DISTANCE
+def opt_climb_alt(distance, tfdc_chart_df):
+    #Optimal Climb Altitude
+    oca = distance/6
+    altitude_prof= 0
+    for index,row in tfdc_chart_df.iterrows():
+        altitude_prof = index
+        if math.ceil(oca) - row.dist <= 0:
+            break
+    return altitude_prof
+
 WIND_heading = 266
 WIND_speed = 44
 
@@ -130,6 +134,42 @@ AP2.code = 'SFB'
 AP2.LAT = 28.777778
 AP2.LONG = -81.2375
 AP2.ALT = 55
+###############
+AP3 = Airport()
+AP3.code = 'RMG'
+AP3.LAT = 34.3507778
+AP3.LONG = -85.1586667
+AP3.ALT = 644
+#################
+AP4 = Airport()
+AP4.code = 'ORL'
+AP4.LAT = 28.5454722
+AP4.LONG = -81.3329167
+AP4.ALT = 112
+#################
+AP5 = Airport()
+AP5.code = '0G7'
+AP5.LAT = 42.8835556
+AP5.LONG = -76.7811667
+AP5.ALT = 491
+#################
+AP6 = Airport()
+AP6.code = 'TYS'
+AP6.LAT = 35.8093739
+AP6.LONG = -83.9953214
+AP6.ALT = 979
+#################
+AP7 = Airport()
+AP7.code = 'MEM'
+AP7.LAT = 35.0424167
+AP7.LONG = -89.9766667
+AP7.ALT = 979
+#################
+AP8 = Airport()
+AP8.code = 'VGT'
+AP8.LAT = 36.2106944
+AP8.LONG = -115.1944444
+AP8.ALT = 979
 ############ AIRCRAFT
 AC = Aircraft('N32RT')
 AC.cruising_speed = 340
@@ -143,34 +183,66 @@ AC.climb_fuel = 50
 AC.climb_dist = 87
 
 
-e6b = E6B()
+e6b = E6B() # Init E6B core computing functions tool
 
-course = e6b.true_course(AP1.coord, AP2.coord)
-distance = great_circle(AP1.coord, AP2.coord)
-wca = e6b.wind_correction_angle(course, AC.cruising_speed, WIND_heading, WIND_speed)
-true_heading = wca + course
-true_headingB = e6b.true_heading(course, AC.cruising_speed, WIND_heading, WIND_speed)
-gs = e6b.ground_speed(course, AC.cruising_speed, WIND_heading, WIND_speed, true_heading)
+#true_headingB = e6b.true_heading(course, AC.cruising_speed, WIND_heading, WIND_speed)
+#gs = e6b.ground_speed(course, AC.cruising_speed, WIND_heading, WIND_speed, true_heading)
+#flight_time = e6b.flight_time(distance.nm, AC.climb_dist, AC.climb_time, gs, 0, 0, 8)
 
 midpoint = e6b.midpoint(AP1.coord, AP2.coord)
-point200m_away = e6b.point_on_path(AP1.coord, course, 200)
+#point200m_away = e6b.point_on_path(AP1.coord, course, 200)
 
-flight_time = e6b.flight_time(distance.nm, AC.climb_dist, AC.climb_time, gs, 0, 0, 8)
 
-opt_dist = distance.nm/6
-alt_prof= 0
-for index,row in df.iterrows():
-    dist_diff = math.ceil(opt_dist) - row.dist
-    alt_prof = index
-    if dist_diff <= 0:
-        break
+def run_trip(AP1, AP2):
+    #### CALCULATE FLIGHT TIME BASED ON NEW MODEL AND CALCULATIONS
+    # FACTUAL INFORMATIOn
+    course = e6b.true_course(AP1.coord, AP2.coord)
+    distance = great_circle(AP1.coord, AP2.coord)
+    #df - pandas data frame with csv data from T.F.D.C @ ISA chart
+    altitude_prof = opt_climb_alt(distance.nm, df) # Find optimal crusing altitude profile for the airplace based on the leg distance
+    wca = e6b.wind_correction_angle(course, df.ix[altitude_prof].tas, WIND_heading, WIND_speed)
+    true_heading = wca + course
+    climb_sect_gs = e6b.ground_speed(course, df.ix[altitude_prof].tas, WIND_heading, WIND_speed, true_heading)
+    climb_sect_alt = df.ix[altitude_prof].alt
+    climb_sect_time = df.ix[altitude_prof].time
+    climb_sect_dist_lookup = df.ix[altitude_prof].dist
+    climb_sect_dist_calc = climb_sect_gs * (climb_sect_time/60)
+    climb_sect_dist_diff = climb_sect_dist_calc - climb_sect_dist_lookup
 
-print(df.ix[alt_prof])
-climb_sect_gs = e6b.ground_speed(course, df.ix[alt_prof].tas, WIND_heading, WIND_speed, true_heading)
-climb_sect_time = df.ix[alt_prof].time
-climb_sect_dist = df.ix[alt_prof].
-(hour, mins) = mins_to_hr_min(flight_time)
-min_fuel_required = e6b.min_leg_fuel_req(AC.cruising_fuel_burn_gph, AC.climb_fuel, AC.taxi_fuel, AC.climb_time, flight_time)
-fuel_required = AC.cruising_fuel_reserve + min_fuel_required
-fuel_required_weight = fuel_required * 6.77
+    cruise_sect_tas = cruise_df.ix[climb_sect_alt].tas
+    cruise_sect_wca = e6b.wind_correction_angle(course, cruise_sect_tas, WIND_heading, WIND_speed)
+    #cruise_sect_gs = e6b.ground_speed(course, cruise_sect_tas, WIND_heading, WIND_speed, true_heading) # this ground speed is wind adjusted
+    cruise_sect_gs = e6b.ground_speed(course, cruise_sect_tas, WIND_heading, WIND_speed, course+cruise_sect_wca) # this ground speed is wind adjusted
+    cruise_sect_dist_lookup = distance.nm-climb_sect_dist_lookup
+    cruise_sect_dist_calc = distance.nm-climb_sect_dist_calc
+    cruise_sect_time_lookup = (cruise_sect_dist_lookup/cruise_sect_gs) * 60
+    cruise_sect_time_calc = (cruise_sect_dist_calc/cruise_sect_gs) * 60
+    cruise_sect_time_diff = cruise_sect_time_calc - cruise_sect_time_lookup
+    flight_time_lookup = climb_sect_time + cruise_sect_time_lookup
+    flight_time_calc = climb_sect_time + cruise_sect_time_calc
+    flight_data = {'dept_ap':AP1.code, 'arrv_ap':AP2.code,'great_circle':distance.nm, 'climb_alt': climb_sect_alt, 'climb_tas':df.ix[altitude_prof].tas, 'climb_time':climb_sect_time, 'climb_gs':climb_sect_gs, 'climb_distC':climb_sect_dist_calc, 'climb_distL':climb_sect_dist_lookup,'V':'|', 'cruise_tas':cruise_sect_tas, 'cruise_timeC':cruise_sect_time_calc, 'cruise_timeL':cruise_sect_time_lookup, 'cruise_gs':cruise_sect_gs, 'cruise_distC':cruise_sect_dist_calc, 'cruise_distL':cruise_sect_dist_lookup, 'flight_timeC':flight_time_calc, 'flight_timeL':flight_time_lookup}
+    return flight_data
+
+dfA = pd.DataFrame(columns=['dept_ap','arrv_ap','great_circle', 'climb_alt', 'climb_tas','climb_time','climb_gs', 'climb_distC','climb_distL','V','cruise_tas','cruise_timeC','cruise_timeL','cruise_gs','cruise_distC','cruise_distL','flight_timeC', 'flight_timeL'])
+result_data = run_trip(AP1,AP2)
+dfA.loc[0] = result_data
+
+result_dataB = run_trip(AP1,AP3)
+dfA.loc[1] = result_dataB
+
+result_dataC = run_trip(AP1,AP4)
+dfA.loc[2] = result_dataC
+
+result_dataD = run_trip(AP1,AP5)
+dfA.loc[3] = result_dataD
+result_dataE = run_trip(AP1,AP6)
+dfA.loc[4] = result_dataE
+result_dataF = run_trip(AP1,AP7)
+dfA.loc[5] = result_dataF
+result_dataG = run_trip(AP1,AP8)
+dfA.loc[6] = result_dataG
+#(hour, mins) = mins_to_hr_min(flight_time)
+#min_fuel_required = e6b.min_leg_fuel_req(AC.cruising_fuel_burn_gph, AC.climb_fuel, AC.taxi_fuel, AC.climb_time, flight_time)
+#fuel_required = AC.cruising_fuel_reserve + min_fuel_required
+#fuel_required_weight = fuel_required * 6.77
 #max_payload = AC.max_weight - AC.empty_weight - P.weight - fuel_required_weight
