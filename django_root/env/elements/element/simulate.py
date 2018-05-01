@@ -5,6 +5,7 @@ from geopy.distance import EARTH_RADIUS
 from geopy.point import Point
 from importcsv import *
 import math
+import requests
 
 class E6B(object):
     def __init__(self):
