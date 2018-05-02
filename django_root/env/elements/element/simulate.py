@@ -8,6 +8,16 @@ import math
 import requests
 
 class E6B(object):
+    '''
+    FUNCTIONS
+        - true_course()
+        - wind_correction_angle()
+        - true_heading()
+        - ground_speed()
+        - midpoint()
+        - flight_time()
+        - leg_min_fuel_req()
+    '''
     def __init__(self):
         pass
 
@@ -82,6 +92,14 @@ class E6B(object):
 
 
     def midpoint(self, pointA, pointB):
+        '''
+        ARGUMENTS
+            pointA  > GeoPy Point class {lat, long,alt}; starting geo coordinates
+            pointB  > GeoPy Point class {lat, long,alt}; ending geo coordinates
+
+        RETURNS
+            (Geopy.Data.Point) - Point coordinates at the middle of the great circle
+        '''
         if pointA.longitude == pointB.longitude: return Point((pointA.latitude+pointB.latitude)/2, pointA.longitude)
         if pointA.latitude == pointB.latitude: return Point(pointA.latitude, (pointA.longitude+pointB.longitude)/2)
         latA, lonA = math.radians(pointA.latitude), math.radians(pointA.longitude)
@@ -217,7 +235,15 @@ e6b = E6B() # Init E6B core computing functions tool
 midpoint = e6b.midpoint(AP1.coord, AP2.coord)
 #point200m_away = e6b.point_on_path(AP1.coord, course, 200)
 
+#figure out the payload (1-2 pilots, pax weight, baggage weight)
+# pilots = [ {'pic_lbs':180, 'pic_bag_lbs':35} , {'sic_lbs':175, 'sic_bag_lbs':35} ]
+# pax = [ {'seat_num':1, 'lbs':200, 'bag_lbs':40} , {'seat_num':2, 'lbs':165, 'bag_lbs':30}
+#         {'seat_num':3, 'lbs':175, 'bag_lbs':20} ]
+def load_aircraft(AC, pilots=[], pax=[], pax_bag=[] ):
+    pass
 
+#run the simulations with orig, dept, aircraft, and payload (whether estimative or true)
+#this will give us the total payload on the a/c and so we can figure out tankering
 def run_trip(AP1, AP2):
     #### CALCULATE FLIGHT TIME BASED ON NEW MODEL AND CALCULATIONS
     # FACTUAL INFORMATION
@@ -256,6 +282,9 @@ def run_trip(AP1, AP2):
 
     #Now what is the available payload of the aircraft? (No pilot or passengers)
     payload_after_fuel = ac_max_weight - leg_fuel_req_lbs
+    payload_after_pilots = payload_after_fuel - pilots_combined_weight
+    payload_after_pax = payload_after_pilots - pax_combined_weight
+    #now we can see how much baggage the pax can carry
     #GENERATE PANDA DATAFRAME Data
     flight_data = {'dept_ap':AP1.code, 'arrv_ap':AP2.code,'great_circle':distance.nm, 'climb_alt': climb_sect_alt, 'climb_tas':df.ix[altitude_prof].tas, \
             'climb_time':climb_sect_time, 'climb_gs':climb_sect_gs, 'climb_distC':climb_sect_dist_calc, 'climb_distL':climb_sect_dist_lookup,'V':'|',\
