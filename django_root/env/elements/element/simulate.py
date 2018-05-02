@@ -72,13 +72,13 @@ class E6B(object):
     def ground_speed(self, course, true_airspeed, wind_dir, wind_speed, true_heading):
         return (true_airspeed*math.cos(math.radians(course-true_heading))) + ( wind_speed * math.cos( math.radians(course-wind_dir+180) ) )
 
-    def flight_time(self, distance, climb_distance, climb_time, ground_speed, dept_ap_xtra_flt_time, arrv_ap_xtra_flt_time, global_xtra_flt_time):
-        if (distance-climb_distance < 0):
-            dist_travel_time = (distance / (groundspeed/2) ) * 60
-        else:
-            dist_travel_time = ( (distance-climb_distance) / ground_speed ) * 60
-        total_flight_time = dept_ap_xtra_flt_time + climb_time + dist_travel_time + arrv_ap_xtra_flt_time + global_xtra_flt_time
-        return total_flight_time
+#    def flight_time(self, distance, climb_distance, climb_time, ground_speed, dept_ap_xtra_flt_time, arrv_ap_xtra_flt_time, global_xtra_flt_time):
+#        if (distance-climb_distance < 0):
+#            dist_travel_time = (distance / (groundspeed/2) ) * 60
+#        else:
+#            dist_travel_time = ( (distance-climb_distance) / ground_speed ) * 60
+#        total_flight_time = dept_ap_xtra_flt_time + climb_time + dist_travel_time + arrv_ap_xtra_flt_time + global_xtra_flt_time
+#        return total_flight_time
 
 
     def midpoint(self, pointA, pointB):
@@ -100,8 +100,8 @@ class E6B(object):
         lon2 = math.radians(starting_point.longitude) + math.atan2(math.sin(math.radians(heading))*math.sin(distance/R)*math.cos(math.radians(starting_point.latitude)), math.cos(distance/R)-math.sin(math.radians(starting_point.latitude))*math.sin(lat2))
         return Point(math.degrees(lat2), math.degrees(lon2))
 
-    def min_leg_fuel_req(self, ac_fuel_burn, ac_climb_burn, ac_taxi_fuel, ac_climb_time, leg_flight_time):
-        return ac_taxi_fuel + ac_climb_burn + math.ceil(ac_fuel_burn * ((leg_flight_time - ac_climb_time)/60))
+    #def min_leg_fuel_req(self, ac_fuel_burn, ac_climb_burn, ac_taxi_fuel, ac_climb_time, leg_flight_time):
+        #return ac_taxi_fuel + ac_climb_burn + math.ceil(ac_fuel_burn * ((leg_flight_time - ac_climb_time)/60))
 
     def leg_min_fuel_req(self, \
             ac_taxi_fuel_gl, \
@@ -133,10 +133,10 @@ def mins_to_hr_min(mins):
     minutes = math.ceil( (hrs_frac % 1) * 60 )
     return (hr, minutes)
 
-#OPTIMAL CLIMBING ALTITUDE FOR A CERTAIN DISTANCE
+#OPTIMAL CLIMBING ALTITUDE FOR A CERTAIN DISTANCE based on Aircraft Performance Chart of T.F.D. to Climb
 def opt_climb_alt(distance, tfdc_chart_df):
     #Optimal Climb Altitude
-    oca = distance/6
+    oca = distance/6 #Dividing the total distance by a factor of 6 seems to approximate to the max climbing distance for chart lookup
     altitude_prof= 0
     for index,row in tfdc_chart_df.iterrows():
         altitude_prof = index
@@ -220,12 +220,13 @@ midpoint = e6b.midpoint(AP1.coord, AP2.coord)
 
 def run_trip(AP1, AP2):
     #### CALCULATE FLIGHT TIME BASED ON NEW MODEL AND CALCULATIONS
-    # FACTUAL INFORMATIOn
-    course = e6b.true_course(AP1.coord, AP2.coord)
-    distance = great_circle(AP1.coord, AP2.coord)
+    # FACTUAL INFORMATION
+    course = e6b.true_course(AP1.coord, AP2.coord) #Calculate course with E6B helper functions
+    distance = great_circle(AP1.coord, AP2.coord) #Calculate distance with great_circle function from GeoPy Python package
     #df - pandas data frame with csv data from T.F.D.C @ ISA chart
-    altitude_prof = opt_climb_alt(distance.nm, df) # Find optimal crusing altitude profile for the airplace based on the leg distance
-    wca = e6b.wind_correction_angle(course, df.ix[altitude_prof].tas, WIND_heading, WIND_speed)
+    altitude_prof = opt_climb_alt(distance.nm, df) # Find optimal crusing altitude profile for the aircraft based on the leg distance
+    climb_sect_tas = df.ix[altitude_prof].tas #Retrieve True AirSpeed from Aircraft Performance Chart (Climb section)
+    wca = e6b.wind_correction_angle(course, climb_sect_tas, WIND_heading, WIND_speed)
     true_heading = wca + course
     climb_sect_gs = e6b.ground_speed(course, df.ix[altitude_prof].tas, WIND_heading, WIND_speed, true_heading)
     climb_sect_alt = df.ix[altitude_prof].alt
@@ -253,6 +254,8 @@ def run_trip(AP1, AP2):
     leg_fuel_req = leg_min_fuel_req + 45
     leg_fuel_req_lbs = leg_fuel_req * 6.77
 
+    #Now what is the available payload of the aircraft? (No pilot or passengers)
+    payload_after_fuel = ac_max_weight - leg_fuel_req_lbs
     #GENERATE PANDA DATAFRAME Data
     flight_data = {'dept_ap':AP1.code, 'arrv_ap':AP2.code,'great_circle':distance.nm, 'climb_alt': climb_sect_alt, 'climb_tas':df.ix[altitude_prof].tas, \
             'climb_time':climb_sect_time, 'climb_gs':climb_sect_gs, 'climb_distC':climb_sect_dist_calc, 'climb_distL':climb_sect_dist_lookup,'V':'|',\
