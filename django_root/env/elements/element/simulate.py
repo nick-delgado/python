@@ -103,6 +103,30 @@ class E6B(object):
     def min_leg_fuel_req(self, ac_fuel_burn, ac_climb_burn, ac_taxi_fuel, ac_climb_time, leg_flight_time):
         return ac_taxi_fuel + ac_climb_burn + math.ceil(ac_fuel_burn * ((leg_flight_time - ac_climb_time)/60))
 
+    def leg_min_fuel_req(self, \
+            ac_taxi_fuel_gl, \
+            ac_climb_fuelburn_alt_lbs, \
+            ac_fuel_type_lbs, \
+            leg_flight_time_min, \
+            leg_climb_time_alt_min, \
+            ac_cruise_fuel_flow_alt_lb_hr):
+        '''
+        ARGUMENTS:
+            ac_taxi_fuel_gl             > Aircraft taxi fuel amount required - user defined (gl)
+            ac_climb_fuelburn_alt_lbs   > Aircraft's climb fuel burned to reach optimal altitude (lbs)
+            ac_fuel_type_lbs            > Weight of fuel based on the type of fuel required by the aircraft (lbs/gl)
+            leg_flight_time_min     > Overall flight time of the leg with optimal altitude (min)
+            leg_climb_time_alt_min      > Climb time to optimal altitude (min)
+            ac_cruise_fuel_flow_lb_hr   > Fuel flow of aircraft at a certain altitude (lb/hr)
+        
+        RETURNS:
+            (float) -- Amount of fuel required [gl]
+        '''
+        #Compute minimum fuel required for the leg
+        return (ac_taxi_fuel_gl) + \
+                ((ac_climb_fuelburn_alt_lbs/ac_fuel_type_lbs)) + \
+                ((( (leg_flight_time_min - leg_climb_time_alt_min)/60 ) * ac_cruise_fuel_flow_alt_lb_hr)/ ac_fuel_type_lbs)
+
 def mins_to_hr_min(mins):
     hrs_frac = mins/60
     hr = math.floor(hrs_frac)
@@ -209,6 +233,7 @@ def run_trip(AP1, AP2):
     climb_sect_dist_lookup = df.ix[altitude_prof].dist
     climb_sect_dist_calc = climb_sect_gs * (climb_sect_time/60)
     climb_sect_dist_diff = climb_sect_dist_calc - climb_sect_dist_lookup
+    climb_sect_fuel_burn = df.ix[altitude_prof].fuel
 
     cruise_sect_tas = cruise_df.ix[climb_sect_alt].tas
     cruise_sect_wca = e6b.wind_correction_angle(course, cruise_sect_tas, WIND_heading, WIND_speed)
@@ -219,21 +244,36 @@ def run_trip(AP1, AP2):
     cruise_sect_time_lookup = (cruise_sect_dist_lookup/cruise_sect_gs) * 60
     cruise_sect_time_calc = (cruise_sect_dist_calc/cruise_sect_gs) * 60
     cruise_sect_time_diff = cruise_sect_time_calc - cruise_sect_time_lookup
+    cruise_sect_fuel_flow = cruise_df.ix[climb_sect_alt].fuel_flow
     flight_time_lookup = climb_sect_time + cruise_sect_time_lookup
     flight_time_calc = climb_sect_time + cruise_sect_time_calc
-    flight_data = {'dept_ap':AP1.code, 'arrv_ap':AP2.code,'great_circle':distance.nm, 'climb_alt': climb_sect_alt, 'climb_tas':df.ix[altitude_prof].tas, 'climb_time':climb_sect_time, 'climb_gs':climb_sect_gs, 'climb_distC':climb_sect_dist_calc, 'climb_distL':climb_sect_dist_lookup,'V':'|', 'cruise_tas':cruise_sect_tas, 'cruise_timeC':cruise_sect_time_calc, 'cruise_timeL':cruise_sect_time_lookup, 'cruise_gs':cruise_sect_gs, 'cruise_distC':cruise_sect_dist_calc, 'cruise_distL':cruise_sect_dist_lookup, 'flight_timeC':flight_time_calc, 'flight_timeL':flight_time_lookup}
+    
+    #Compute fuel consumption calculations
+    leg_min_fuel_req = e6b.leg_min_fuel_req(4.5, climb_sect_fuel_burn, 6.77, flight_time_calc, climb_sect_time, cruise_sect_fuel_flow )
+    leg_fuel_req = leg_min_fuel_req + 45
+    leg_fuel_req_lbs = leg_fuel_req * 6.77
+
+    #GENERATE PANDA DATAFRAME Data
+    flight_data = {'dept_ap':AP1.code, 'arrv_ap':AP2.code,'great_circle':distance.nm, 'climb_alt': climb_sect_alt, 'climb_tas':df.ix[altitude_prof].tas, \
+            'climb_time':climb_sect_time, 'climb_gs':climb_sect_gs, 'climb_distC':climb_sect_dist_calc, 'climb_distL':climb_sect_dist_lookup,'V':'|',\
+            'cruise_tas':cruise_sect_tas, 'cruise_timeC':cruise_sect_time_calc, 'cruise_timeL':cruise_sect_time_lookup, 'cruise_gs':cruise_sect_gs, \
+            'cruise_distC':cruise_sect_dist_calc, 'cruise_distL':cruise_sect_dist_lookup, 'flight_timeC':flight_time_calc, 'flight_timeL':flight_time_lookup, \
+            'min_fuel_req':leg_min_fuel_req, 'fuel_req':leg_fuel_req, 'fuel_req_weight':leg_fuel_req_lbs}
     return flight_data
 
-dfA = pd.DataFrame(columns=['dept_ap','arrv_ap','great_circle', 'climb_alt', 'climb_tas','climb_time','climb_gs', 'climb_distC','climb_distL','V','cruise_tas','cruise_timeC','cruise_timeL','cruise_gs','cruise_distC','cruise_distL','flight_timeC', 'flight_timeL'])
+
+###########################
+#### SETUP SIMULATIONS ####
+##########################
+# Prepare Panda DataFrame for adding computations to it
+dfA = pd.DataFrame(columns=['dept_ap','arrv_ap','great_circle', 'climb_alt', 'climb_tas','climb_time','climb_gs', 'climb_distC','climb_distL','V',\
+        'cruise_tas','cruise_timeC','cruise_timeL','cruise_gs','cruise_distC','cruise_distL','flight_timeC', 'flight_timeL', 'min_fuel_req', 'fuel_req','fuel_req_weight'])
 result_data = run_trip(AP1,AP2)
 dfA.loc[0] = result_data
-
 result_dataB = run_trip(AP1,AP3)
 dfA.loc[1] = result_dataB
-
 result_dataC = run_trip(AP1,AP4)
 dfA.loc[2] = result_dataC
-
 result_dataD = run_trip(AP1,AP5)
 dfA.loc[3] = result_dataD
 result_dataE = run_trip(AP1,AP6)
@@ -242,8 +282,14 @@ result_dataF = run_trip(AP1,AP7)
 dfA.loc[5] = result_dataF
 result_dataG = run_trip(AP1,AP8)
 dfA.loc[6] = result_dataG
+
+
 #(hour, mins) = mins_to_hr_min(flight_time)
 #min_fuel_required = e6b.min_leg_fuel_req(AC.cruising_fuel_burn_gph, AC.climb_fuel, AC.taxi_fuel, AC.climb_time, flight_time)
 #fuel_required = AC.cruising_fuel_reserve + min_fuel_required
 #fuel_required_weight = fuel_required * 6.77
 #max_payload = AC.max_weight - AC.empty_weight - P.weight - fuel_required_weight
+
+#Flight time is now computed...
+# so now we need to compute fuel burn
+
