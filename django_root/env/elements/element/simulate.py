@@ -64,16 +64,23 @@ class E6B(object):
         return compass_bearing
 
     def wind_correction_angle(self, course, true_airspeed, wind_dir, wind_speed):
-        wca = (180/math.pi) * math.asin((wind_speed / true_airspeed) *
-            math.sin(math.pi * (wind_dir - course) / 180))
+        '''
+        ARGUMENTS
+            course          > true course of the leg between origin airport and destination airport
+            true_airspeed   > True airspeed of aircraft at the selected optimal altitude
+            wind_dir        > Direction in degrees the wind is coming from
+            wind_speed      > Speeds in knots of the wind
+        '''
+        #wca = (180/math.pi) * math.asin((wind_speed / true_airspeed) * math.sin(math.pi * (wind_dir - course) / 180))
+        wca = math.degrees(math.asin((wind_speed / true_airspeed)) * math.sin(math.radians(wind_dir - course+180)))
         # round to the nearest whole degree
         return round(wca, 2)
 
-    def true_heading(self, course, true_airspeed, wind_dir, wind_speed):
-        wca = course + (180/math.pi) * math.asin((wind_speed / true_airspeed) *
-            math.sin(math.pi * (wind_dir - course) / 180))
-        # round to the nearest whole degree
-        return round(wca, 2)
+#    def true_heading(self, course, true_airspeed, wind_dir, wind_speed):
+#        wca = course + (180/math.pi) * math.asin((wind_speed / true_airspeed) *
+#            math.sin(math.pi * (wind_dir - course) / 180))
+#        # round to the nearest whole degree
+#        return round(wca, 2)
 
     def density_altitude(self, pressure_alt, oat_cel, ISA):
         # return 145442.16 * (1 - (17.326 * pressure_alt / 459.67 + oat_cel) ** 0.235)
@@ -117,9 +124,6 @@ class E6B(object):
         lat2 = math.asin( math.sin(math.radians(starting_point.latitude))*math.cos(distance/R) + math.cos(math.radians(starting_point.latitude))*math.sin(distance/R)*math.cos(math.radians(heading)) )
         lon2 = math.radians(starting_point.longitude) + math.atan2(math.sin(math.radians(heading))*math.sin(distance/R)*math.cos(math.radians(starting_point.latitude)), math.cos(distance/R)-math.sin(math.radians(starting_point.latitude))*math.sin(lat2))
         return Point(math.degrees(lat2), math.degrees(lon2))
-
-    #def min_leg_fuel_req(self, ac_fuel_burn, ac_climb_burn, ac_taxi_fuel, ac_climb_time, leg_flight_time):
-        #return ac_taxi_fuel + ac_climb_burn + math.ceil(ac_fuel_burn * ((leg_flight_time - ac_climb_time)/60))
 
     def leg_min_fuel_req(self, \
             ac_taxi_fuel_gl, \
@@ -213,6 +217,12 @@ AP8.code = 'VGT'
 AP8.LAT = 36.2106944
 AP8.LONG = -115.1944444
 AP8.ALT = 979
+####
+AP9 = Airport()
+AP9.code = 'JLN'
+AP9.LAT = 37.1531683
+AP9.LONG = -94.4988078
+AP9.ALT = 977
 ############ AIRCRAFT
 AC = Aircraft('N32RT')
 AC.cruising_speed = 340
@@ -226,6 +236,16 @@ AC.climb_fuel = 50
 AC.climb_dist = 87
 
 
+class CREW (object):
+    weight = 0
+
+class PAYLOAD(object):
+    weight = 0
+
+CREW = CREW()
+CREW.weight = 250
+PAYLOAD = PAYLOAD()
+PAYLOAD.weight = 800
 e6b = E6B() # Init E6B core computing functions tool
 
 #true_headingB = e6b.true_heading(course, AC.cruising_speed, WIND_heading, WIND_speed)
@@ -244,28 +264,31 @@ def load_aircraft(AC, pilots=[], pax=[], pax_bag=[] ):
 
 #run the simulations with orig, dept, aircraft, and payload (whether estimative or true)
 #this will give us the total payload on the a/c and so we can figure out tankering
-def run_trip(AP1, AP2):
+
+def run_leg_sim(AP1, AP2, AC, CREW, PAYLOAD):
     #### CALCULATE FLIGHT TIME BASED ON NEW MODEL AND CALCULATIONS
     # FACTUAL INFORMATION
     course = e6b.true_course(AP1.coord, AP2.coord) #Calculate course with E6B helper functions
     distance = great_circle(AP1.coord, AP2.coord) #Calculate distance with great_circle function from GeoPy Python package
     #df - pandas data frame with csv data from T.F.D.C @ ISA chart
     altitude_prof = opt_climb_alt(distance.nm, df) # Find optimal crusing altitude profile for the aircraft based on the leg distance
+    ##### CLIMB SECTION
     climb_sect_tas = df.ix[altitude_prof].tas #Retrieve True AirSpeed from Aircraft Performance Chart (Climb section)
-    wca = e6b.wind_correction_angle(course, climb_sect_tas, WIND_heading, WIND_speed)
-    true_heading = wca + course
-    climb_sect_gs = e6b.ground_speed(course, df.ix[altitude_prof].tas, WIND_heading, WIND_speed, true_heading)
+    climb_sect_wca = e6b.wind_correction_angle(course, climb_sect_tas, WIND_heading, WIND_speed*0.5)
+    climb_sect_true_heading = climb_sect_wca + course
+    climb_sect_gs = e6b.ground_speed(course, df.ix[altitude_prof].tas, WIND_heading, WIND_speed*0.5, climb_sect_true_heading)
     climb_sect_alt = df.ix[altitude_prof].alt
     climb_sect_time = df.ix[altitude_prof].time
     climb_sect_dist_lookup = df.ix[altitude_prof].dist
     climb_sect_dist_calc = climb_sect_gs * (climb_sect_time/60)
     climb_sect_dist_diff = climb_sect_dist_calc - climb_sect_dist_lookup
     climb_sect_fuel_burn = df.ix[altitude_prof].fuel
-
+    
+    ##### CRUISE SECTION
     cruise_sect_tas = cruise_df.ix[climb_sect_alt].tas
     cruise_sect_wca = e6b.wind_correction_angle(course, cruise_sect_tas, WIND_heading, WIND_speed)
-    #cruise_sect_gs = e6b.ground_speed(course, cruise_sect_tas, WIND_heading, WIND_speed, true_heading) # this ground speed is wind adjusted
-    cruise_sect_gs = e6b.ground_speed(course, cruise_sect_tas, WIND_heading, WIND_speed, course+cruise_sect_wca) # this ground speed is wind adjusted
+    cruise_sect_true_heading = cruise_sect_wca + course
+    cruise_sect_gs = e6b.ground_speed(course, cruise_sect_tas, WIND_heading, WIND_speed, cruise_sect_true_heading) # this ground speed is wind adjusted
     cruise_sect_dist_lookup = distance.nm-climb_sect_dist_lookup
     cruise_sect_dist_calc = distance.nm-climb_sect_dist_calc
     cruise_sect_time_lookup = (cruise_sect_dist_lookup/cruise_sect_gs) * 60
@@ -281,12 +304,40 @@ def run_trip(AP1, AP2):
     leg_fuel_req_lbs = leg_fuel_req * 6.77
 
     #Now what is the available payload of the aircraft? (No pilot or passengers)
-    payload_after_fuel = ac_max_weight - leg_fuel_req_lbs
-    payload_after_pilots = payload_after_fuel - pilots_combined_weight
-    payload_after_pax = payload_after_pilots - pax_combined_weight
+   # payload_after_fuel = ac_max_weight - leg_fuel_req_lbs
+   # payload_after_pilots = payload_after_fuel - pilots_combined_weight
+   # payload_after_pax = payload_after_pilots - pax_combined_weight
     #now we can see how much baggage the pax can carry
+    weight_basic_operating = CREW.weight + AC.empty_weight    #sum of all the pilot(s) and crew
+    weight_zero_fuel_weight = weight_basic_operating + PAYLOAD.weight
+    #now need to check if the the zero fuel weight exceeds the Maximum Zero Fuel Weight of the A/C
+    if (weight_zero_fuel_weight > AC.maximum_zero_fuel_weight):
+        print('Maximum Zero Fuel Weight limit exceeded')
+
+    #now we need to add the required fuel weight to get the weight of the A/C on the ramp
+    weight_ramp = weight_zero_fuel_weight + leg_fuel_req_lbs
+    if (weight_ramp > AC.ramp_max_weight):
+        print('Maximum Ramp Weight limit exceeded')
+
+    #now subtract taxi fuel burned weight
+    weight_takeoff = weight_ramp - (AC.taxi_fuel*6.77)
+    if (weight_takeoff > AC.max_takeoff_weight):
+        print('Maximum TakeOff Weight limit exceeded')
+
+    #after taking off and flying, calculate the fuel burned (don't include reserve)
+    weight_landing = weight_takeoff - (leg_min_fuel_req*6.77)
+    if (weight_landing > AC.max_landing_weight):
+        print('Maximum Landing Weight limit exceeded')
+
+    weight_shutdown_fob = weight_landing - (AC.taxi_fuel*6.77) # This is the weight of the A/C, pilots, paxs, bags and remaining fuel when the engine shuts down
+    
+    avail_fuel_payload_tow = AC.maximum_takeoff_weight - weight_takeoff
+    avail_fuel_payload_ldg = AC.max_landing_weight - weight_landing
+    
+
+
     #GENERATE PANDA DATAFRAME Data
-    flight_data = {'dept_ap':AP1.code, 'arrv_ap':AP2.code,'great_circle':distance.nm, 'climb_alt': climb_sect_alt, 'climb_tas':df.ix[altitude_prof].tas, \
+    flight_data = {'dept_ap':AP1.code, 'arrv_ap':AP2.code,'great_circle':distance.nm, 'course':course, 'climb_alt': climb_sect_alt, 'climb_tas':df.ix[altitude_prof].tas, \
             'climb_time':climb_sect_time, 'climb_gs':climb_sect_gs, 'climb_distC':climb_sect_dist_calc, 'climb_distL':climb_sect_dist_lookup,'V':'|',\
             'cruise_tas':cruise_sect_tas, 'cruise_timeC':cruise_sect_time_calc, 'cruise_timeL':cruise_sect_time_lookup, 'cruise_gs':cruise_sect_gs, \
             'cruise_distC':cruise_sect_dist_calc, 'cruise_distL':cruise_sect_dist_lookup, 'flight_timeC':flight_time_calc, 'flight_timeL':flight_time_lookup, \
@@ -298,23 +349,25 @@ def run_trip(AP1, AP2):
 #### SETUP SIMULATIONS ####
 ##########################
 # Prepare Panda DataFrame for adding computations to it
-dfA = pd.DataFrame(columns=['dept_ap','arrv_ap','great_circle', 'climb_alt', 'climb_tas','climb_time','climb_gs', 'climb_distC','climb_distL','V',\
+dfA = pd.DataFrame(columns=['dept_ap','arrv_ap','great_circle','course', 'climb_alt', 'climb_tas','climb_time','climb_gs', 'climb_distC','climb_distL','V',\
         'cruise_tas','cruise_timeC','cruise_timeL','cruise_gs','cruise_distC','cruise_distL','flight_timeC', 'flight_timeL', 'min_fuel_req', 'fuel_req','fuel_req_weight'])
-result_data = run_trip(AP1,AP2)
+result_data = run_leg_sim(AP1,AP2,AC,CREW,PAYLOAD)
 dfA.loc[0] = result_data
-result_dataB = run_trip(AP1,AP3)
+result_dataB = run_leg_sim(AP1,AP3,AC,CREW,PAYLOAD)
 dfA.loc[1] = result_dataB
-result_dataC = run_trip(AP1,AP4)
+result_dataC = run_leg_sim(AP1,AP4,AC,CREW,PAYLOAD)
 dfA.loc[2] = result_dataC
-result_dataD = run_trip(AP1,AP5)
+result_dataD = run_leg_sim(AP1,AP5,AC,CREW,PAYLOAD)
 dfA.loc[3] = result_dataD
-result_dataE = run_trip(AP1,AP6)
+result_dataE = run_leg_sim(AP1,AP6,AC,CREW,PAYLOAD)
 dfA.loc[4] = result_dataE
-result_dataF = run_trip(AP1,AP7)
+result_dataF = run_leg_sim(AP1,AP7,AC,CREW,PAYLOAD)
 dfA.loc[5] = result_dataF
-result_dataG = run_trip(AP1,AP8)
+result_dataG = run_leg_sim(AP1,AP8,AC,CREW,PAYLOAD)
 dfA.loc[6] = result_dataG
 
+result_dataH = run_leg_sim(AP1,AP9,AC,CREW,PAYLOAD)
+dfA.loc[7] = result_dataH
 
 #(hour, mins) = mins_to_hr_min(flight_time)
 #min_fuel_required = e6b.min_leg_fuel_req(AC.cruising_fuel_burn_gph, AC.climb_fuel, AC.taxi_fuel, AC.climb_time, flight_time)

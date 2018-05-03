@@ -24,8 +24,9 @@ class Aircraft(models.Model):
     max_takeoff_weight = models.IntegerField(default=6000)
     max_landing_weight = models.IntegerField(default=5600)
     # AIRPORT REQUIREMENTS
+    
+    
     # PERFORMANCE
-
     taxi_fuel = models.IntegerField(default=4.5)
     climb_time = models.IntegerField(default=25)
     climb_fuel = models.IntegerField(default=25)
