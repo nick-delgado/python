@@ -248,10 +248,6 @@ PAYLOAD = PAYLOAD()
 PAYLOAD.weight = 800
 e6b = E6B() # Init E6B core computing functions tool
 
-#true_headingB = e6b.true_heading(course, AC.cruising_speed, WIND_heading, WIND_speed)
-#gs = e6b.ground_speed(course, AC.cruising_speed, WIND_heading, WIND_speed, true_heading)
-#flight_time = e6b.flight_time(distance.nm, AC.climb_dist, AC.climb_time, gs, 0, 0, 8)
-
 midpoint = e6b.midpoint(AP1.coord, AP2.coord)
 #point200m_away = e6b.point_on_path(AP1.coord, course, 200)
 
@@ -303,36 +299,32 @@ def run_leg_sim(AP1, AP2, AC, CREW, PAYLOAD):
     leg_fuel_req = leg_min_fuel_req + 45
     leg_fuel_req_lbs = leg_fuel_req * 6.77
 
-    #Now what is the available payload of the aircraft? (No pilot or passengers)
-   # payload_after_fuel = ac_max_weight - leg_fuel_req_lbs
-   # payload_after_pilots = payload_after_fuel - pilots_combined_weight
-   # payload_after_pax = payload_after_pilots - pax_combined_weight
-    #now we can see how much baggage the pax can carry
+    # Calculate weight limitation and allowances for take-off and landing
     weight_basic_operating = CREW.weight + AC.empty_weight    #sum of all the pilot(s) and crew
     weight_zero_fuel_weight = weight_basic_operating + PAYLOAD.weight
-    #now need to check if the the zero fuel weight exceeds the Maximum Zero Fuel Weight of the A/C
+    #now need to check if the the zero-fuel-weight exceeds the Maximum Zero Fuel Weight of the A/C
     if (weight_zero_fuel_weight > AC.maximum_zero_fuel_weight):
         print('Maximum Zero Fuel Weight limit exceeded')
 
-    #now we need to add the required fuel weight to get the weight of the A/C on the ramp
-    weight_ramp = weight_zero_fuel_weight + leg_fuel_req_lbs
-    if (weight_ramp > AC.ramp_max_weight):
+    #now we need to add the required-fuel-weight to the zero-fuel-weight to get the weight of the A/C on the ramp
+    weight_onramp = weight_zero_fuel_weight + leg_fuel_req_lbs
+    if (weight_onramp > AC.ramp_max_weight):
         print('Maximum Ramp Weight limit exceeded')
 
     #now subtract taxi fuel burned weight
-    weight_takeoff = weight_ramp - (AC.taxi_fuel*6.77)
-    if (weight_takeoff > AC.max_takeoff_weight):
+    weight_ontakeoff = weight_onramp - (AC.taxi_fuel*6.77)
+    if (weight_ontakeoff > AC.max_takeoff_weight):
         print('Maximum TakeOff Weight limit exceeded')
 
     #after taking off and flying, calculate the fuel burned (don't include reserve)
-    weight_landing = weight_takeoff - (leg_min_fuel_req*6.77)
-    if (weight_landing > AC.max_landing_weight):
+    weight_onlanding = weight_ontakeoff - (leg_min_fuel_req*6.77)
+    if (weight_onlanding > AC.max_landing_weight):
         print('Maximum Landing Weight limit exceeded')
 
-    weight_shutdown_fob = weight_landing - (AC.taxi_fuel*6.77) # This is the weight of the A/C, pilots, paxs, bags and remaining fuel when the engine shuts down
+    weight_atshutdown = weight_onlanding - (AC.taxi_fuel*6.77) # This is the weight of the A/C, pilots, paxs, bags and remaining fuel when the engine shuts down
     
-    avail_fuel_payload_tow = AC.maximum_takeoff_weight - weight_takeoff
-    avail_fuel_payload_ldg = AC.max_landing_weight - weight_landing
+    avail_fuel_payload_atdept = AC.maximum_takeoff_weight - weight_ontakeoff
+    avail_fuel_payload_atarrv = AC.max_landing_weight - weight_onlanding
     
 
 
