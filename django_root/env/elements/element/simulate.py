@@ -168,8 +168,8 @@ def opt_climb_alt(distance, tfdc_chart_df):
             break
     return altitude_prof
 
-WIND_heading = 266
-WIND_speed = 44
+WIND_heading = 277
+WIND_speed = 27
 
 ##### AIRPORTS #####
 AP1 = Airport(code='KCHA',LAT=35.035278,LONG=-85.203889,ALT=683)
@@ -272,9 +272,11 @@ def run_leg_sim(AP1, AP2, AC, CREW, PAYLOAD):
     altitude_prof = opt_climb_alt(distance, df) # Find optimal crusing altitude profile for the aircraft based on the leg distance
     ##### CLIMB SECTION
     climb_sect_tas = df.ix[altitude_prof].tas #Retrieve True AirSpeed from Aircraft Performance Chart (Climb section)
+    #with calculations
     climb_sect_wca = e6b.wind_correction_angle(course, climb_sect_tas, WIND_heading, WIND_speed*0.5)
     climb_sect_true_heading = climb_sect_wca + course
     climb_sect_gs = e6b.ground_speed(course, df.ix[altitude_prof].tas, WIND_heading, WIND_speed*0.5, climb_sect_true_heading)
+
     climb_sect_alt = df.ix[altitude_prof].alt
     climb_sect_time = df.ix[altitude_prof].time
     climb_sect_dist_lookup = df.ix[altitude_prof].dist
@@ -293,8 +295,8 @@ def run_leg_sim(AP1, AP2, AC, CREW, PAYLOAD):
     cruise_sect_time_calc = round((cruise_sect_dist_calc/cruise_sect_gs) * 60, 1)
     cruise_sect_time_diff = cruise_sect_time_calc - cruise_sect_time_lookup
     cruise_sect_fuel_flow = cruise_df.ix[climb_sect_alt].fuel_flow
-    flight_time_lookup = climb_sect_time + cruise_sect_time_lookup
-    flight_time_calc = climb_sect_time + cruise_sect_time_calc
+    flight_time_lookup = climb_sect_time + cruise_sect_time_lookup + 8
+    flight_time_calc = climb_sect_time + cruise_sect_time_calc + 8
     
     #Compute fuel consumption calculations
     leg_min_fuel_req = e6b.leg_min_fuel_req(4.5, climb_sect_fuel_burn, AC.fuel_weight, flight_time_calc, climb_sect_time, cruise_sect_fuel_flow )
