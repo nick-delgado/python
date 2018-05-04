@@ -234,7 +234,12 @@ AC.taxi_fuel = 4.5
 AC.climb_time = 25
 AC.climb_fuel = 50
 AC.climb_dist = 87
-
+AC.fuel_weight = 6.77
+AC.empty_weight = 3754
+AC.maximum_zero_fuel_weight = 4922
+AC.max_takeoff_weight = 6000
+AC.max_landing_weight = 5600
+AC.ramp_max_weight = 6034
 
 class CREW (object):
     weight = 0
@@ -295,78 +300,86 @@ def run_leg_sim(AP1, AP2, AC, CREW, PAYLOAD):
     flight_time_calc = climb_sect_time + cruise_sect_time_calc
     
     #Compute fuel consumption calculations
-    leg_min_fuel_req = e6b.leg_min_fuel_req(4.5, climb_sect_fuel_burn, 6.77, flight_time_calc, climb_sect_time, cruise_sect_fuel_flow )
+    leg_min_fuel_req = e6b.leg_min_fuel_req(4.5, climb_sect_fuel_burn, AC.fuel_weight, flight_time_calc, climb_sect_time, cruise_sect_fuel_flow )
     leg_fuel_req = leg_min_fuel_req + 45
-    leg_fuel_req_lbs = leg_fuel_req * 6.77
+    leg_fuel_req_lbs = leg_fuel_req * AC.fuel_weight
+    if (leg_fuel_req > AC.max_fuel_capacity):
+        print('Maximum Fuel Capacity limit exceeded: '+str(leg_fuel_req))
 
     # Calculate weight limitation and allowances for take-off and landing
     weight_basic_operating = CREW.weight + AC.empty_weight    #sum of all the pilot(s) and crew
     weight_zero_fuel_weight = weight_basic_operating + PAYLOAD.weight
-    #now need to check if the the zero-fuel-weight exceeds the Maximum Zero Fuel Weight of the A/C
+    #...now need to check if the the zero-fuel-weight exceeds the Maximum Zero Fuel Weight of the A/C
     if (weight_zero_fuel_weight > AC.maximum_zero_fuel_weight):
         print('Maximum Zero Fuel Weight limit exceeded')
 
-    #now we need to add the required-fuel-weight to the zero-fuel-weight to get the weight of the A/C on the ramp
+    #...now add the required-fuel-weight to the zero-fuel-weight to get the weight of the A/C on the ramp
     weight_onramp = weight_zero_fuel_weight + leg_fuel_req_lbs
     if (weight_onramp > AC.ramp_max_weight):
         print('Maximum Ramp Weight limit exceeded')
 
-    #now subtract taxi fuel burned weight
-    weight_ontakeoff = weight_onramp - (AC.taxi_fuel*6.77)
+    #...now subtract taxi fuel burned weight
+    weight_ontakeoff = weight_onramp - (AC.taxi_fuel*AC.fuel_weight)
     if (weight_ontakeoff > AC.max_takeoff_weight):
         print('Maximum TakeOff Weight limit exceeded')
 
-    #after taking off and flying, calculate the fuel burned (don't include reserve)
-    weight_onlanding = weight_ontakeoff - (leg_min_fuel_req*6.77)
+    #...after taking off and flying, calculate the fuel burned (don't include reserve)
+    weight_onlanding = weight_ontakeoff - (leg_min_fuel_req*AC.fuel_weight)
     if (weight_onlanding > AC.max_landing_weight):
         print('Maximum Landing Weight limit exceeded')
 
-    weight_atshutdown = weight_onlanding - (AC.taxi_fuel*6.77) # This is the weight of the A/C, pilots, paxs, bags and remaining fuel when the engine shuts down
-    
-    avail_fuel_payload_atdept = AC.maximum_takeoff_weight - weight_ontakeoff
-    avail_fuel_payload_atarrv = AC.max_landing_weight - weight_onlanding
-    
+    #...this is the weight of the A/C, pilots, paxs, bags and remaining fuel when the engine shuts down
+    weight_atshutdown = weight_onlanding - (AC.taxi_fuel*AC.fuel_weight) 
+    #...calculate available extra weight that the A/C that will allow it to takeoff or land
+    avail_fuel_payload_atdept = AC.max_takeoff_weight - weight_ontakeoff # Lbs
+    avail_fuel_payload_atarrv = AC.max_landing_weight - weight_onlanding # Lbs
+    # ...what capacity is possible for this aircraft in terms of lbs and gl
+    remaining_tank_gl = AC.max_fuel_capacity - leg_fuel_req # ...How many gallons more could be added in lbs
+    remaining_tank_lbs = remaining_tank_gl * AC.fuel_weight # ...how many gallons more could be added in gallons
 
+    #...the least of the 3 fuel payloads is the maximum tankering (in lbs) that can be added to the leg
+    max_tankering_fuel_lbs = min([avail_fuel_payload_atdept, avail_fuel_payload_atarrv,remaining_tank_lbs])
+    if (max_tankering_fuel_lbs < 0 ): max_tankering_fuel_lbs = 0
+    #...now calculate gallons based on fuel
+    max_tankering_fuel_g = max_tankering_fuel_lbs / AC.fuel_weight
+    #avail_tankering_fuel_g = AC.max_fuel_capacity - max_tankering_fuel_g
 
     #GENERATE PANDA DATAFRAME Data
     flight_data = {'dept_ap':AP1.code, 'arrv_ap':AP2.code,'great_circle':distance.nm, 'course':course, 'climb_alt': climb_sect_alt, 'climb_tas':df.ix[altitude_prof].tas, \
             'climb_time':climb_sect_time, 'climb_gs':climb_sect_gs, 'climb_distC':climb_sect_dist_calc, 'climb_distL':climb_sect_dist_lookup,'V':'|',\
             'cruise_tas':cruise_sect_tas, 'cruise_timeC':cruise_sect_time_calc, 'cruise_timeL':cruise_sect_time_lookup, 'cruise_gs':cruise_sect_gs, \
             'cruise_distC':cruise_sect_dist_calc, 'cruise_distL':cruise_sect_dist_lookup, 'flight_timeC':flight_time_calc, 'flight_timeL':flight_time_lookup, \
-            'min_fuel_req':leg_min_fuel_req, 'fuel_req':leg_fuel_req, 'fuel_req_weight':leg_fuel_req_lbs}
+            'min_fuel_req':leg_min_fuel_req, 'fuel_req':leg_fuel_req, 'fuel_req_weight':leg_fuel_req_lbs,'remaining_tank_gl':remaining_tank_gl, 'weight_ontakeoff':weight_ontakeoff, 'weight_onlanding':weight_onlanding,'max_tankering_wgt':max_tankering_fuel_lbs, 'max_tankering_fuel':max_tankering_fuel_g}
     return flight_data
 
 
 ###########################
 #### SETUP SIMULATIONS ####
 ##########################
+
 # Prepare Panda DataFrame for adding computations to it
 dfA = pd.DataFrame(columns=['dept_ap','arrv_ap','great_circle','course', 'climb_alt', 'climb_tas','climb_time','climb_gs', 'climb_distC','climb_distL','V',\
-        'cruise_tas','cruise_timeC','cruise_timeL','cruise_gs','cruise_distC','cruise_distL','flight_timeC', 'flight_timeL', 'min_fuel_req', 'fuel_req','fuel_req_weight'])
-result_data = run_leg_sim(AP1,AP2,AC,CREW,PAYLOAD)
-dfA.loc[0] = result_data
-result_dataB = run_leg_sim(AP1,AP3,AC,CREW,PAYLOAD)
-dfA.loc[1] = result_dataB
-result_dataC = run_leg_sim(AP1,AP4,AC,CREW,PAYLOAD)
-dfA.loc[2] = result_dataC
-result_dataD = run_leg_sim(AP1,AP5,AC,CREW,PAYLOAD)
-dfA.loc[3] = result_dataD
-result_dataE = run_leg_sim(AP1,AP6,AC,CREW,PAYLOAD)
-dfA.loc[4] = result_dataE
-result_dataF = run_leg_sim(AP1,AP7,AC,CREW,PAYLOAD)
-dfA.loc[5] = result_dataF
-result_dataG = run_leg_sim(AP1,AP8,AC,CREW,PAYLOAD)
-dfA.loc[6] = result_dataG
+        'cruise_tas','cruise_timeC','cruise_timeL','cruise_gs','cruise_distC','cruise_distL','flight_timeC', 'flight_timeL', 'min_fuel_req', 'fuel_req',\
+        'fuel_req_weight','remaining_tank_gl', 'weight_ontakeoff','weight_onlanding','max_tankering_wgt', 'max_tankering_fuel'])
 
-result_dataH = run_leg_sim(AP1,AP9,AC,CREW,PAYLOAD)
-dfA.loc[7] = result_dataH
+def sim():
+    result_data = run_leg_sim(AP1,AP2,AC,CREW,PAYLOAD)
+    dfA.loc[0] = result_data
+    result_dataB = run_leg_sim(AP1,AP3,AC,CREW,PAYLOAD)
+    dfA.loc[1] = result_dataB
+    result_dataC = run_leg_sim(AP1,AP4,AC,CREW,PAYLOAD)
+    dfA.loc[2] = result_dataC
+    result_dataD = run_leg_sim(AP1,AP5,AC,CREW,PAYLOAD)
+    dfA.loc[3] = result_dataD
+    result_dataE = run_leg_sim(AP1,AP6,AC,CREW,PAYLOAD)
+    dfA.loc[4] = result_dataE
+    result_dataF = run_leg_sim(AP1,AP7,AC,CREW,PAYLOAD)
+    dfA.loc[5] = result_dataF
+    result_dataG = run_leg_sim(AP1,AP8,AC,CREW,PAYLOAD)
+    dfA.loc[6] = result_dataG
+    result_dataH = run_leg_sim(AP1,AP9,AC,CREW,PAYLOAD)
+    dfA.loc[7] = result_dataH
 
 #(hour, mins) = mins_to_hr_min(flight_time)
-#min_fuel_required = e6b.min_leg_fuel_req(AC.cruising_fuel_burn_gph, AC.climb_fuel, AC.taxi_fuel, AC.climb_time, flight_time)
-#fuel_required = AC.cruising_fuel_reserve + min_fuel_required
-#fuel_required_weight = fuel_required * 6.77
-#max_payload = AC.max_weight - AC.empty_weight - P.weight - fuel_required_weight
 
-#Flight time is now computed...
-# so now we need to compute fuel burn
 

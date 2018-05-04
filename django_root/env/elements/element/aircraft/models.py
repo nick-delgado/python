@@ -23,6 +23,8 @@ class Aircraft(models.Model):
     ramp_max_weight = models.IntegerField(default=6000)
     max_takeoff_weight = models.IntegerField(default=6000)
     max_landing_weight = models.IntegerField(default=5600)
+
+    fuel_weight = models.FloatField(default=6.77)
     # AIRPORT REQUIREMENTS
     
     
@@ -31,11 +33,12 @@ class Aircraft(models.Model):
     climb_time = models.IntegerField(default=25)
     climb_fuel = models.IntegerField(default=25)
     climb_dist = models.IntegerField(default=80)
-    def optimal_altitude(self.distance, tfdc_chart_df):
-        oa = self.distance/6 #Dividing the total distance by a factor of 6 seems to approximate to the max climbing self.distance for chart lookup
-        altitude_prof= 0
-        for index,row in tfdc_chart_df.iterrows():
-            altitude_prof = index
-            if math.ceil(oa) - row.dist <= 0:
-                break
-        return altitude_prof
+
+#    def optimal_altitude(distance, tfdc_chart_df:
+#        oa = self.distance/6 #Dividing the total distance by a factor of 6 seems to approximate to the max climbing self.distance for chart lookup
+#        altitude_prof= 0
+#        for index,row in tfdc_chart_df.iterrows():
+#            altitude_prof = index
+#            if math.ceil(oa) - row.dist <= 0:
+#                break
+#        return altitude_prof
