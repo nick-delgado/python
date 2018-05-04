@@ -61,7 +61,7 @@ class E6B(object):
         # The solution is to normalize the initial bearing as shown below
         initial_bearing = math.degrees(initial_bearing)
         compass_bearing = (initial_bearing + 360) % 360
-        return compass_bearing
+        return round(compass_bearing, 2)
 
     def wind_correction_angle(self, course, true_airspeed, wind_dir, wind_speed):
         '''
@@ -72,7 +72,7 @@ class E6B(object):
             wind_speed      > Speeds in knots of the wind
         '''
         #wca = (180/math.pi) * math.asin((wind_speed / true_airspeed) * math.sin(math.pi * (wind_dir - course) / 180))
-        wca = math.degrees(math.asin((wind_speed / true_airspeed)) * math.sin(math.radians(wind_dir - course+180)))
+        wca = round(math.degrees(math.asin((wind_speed / true_airspeed)) * math.sin(math.radians(wind_dir - course+180))),2)
         # round to the nearest whole degree
         return round(wca, 2)
 
@@ -87,7 +87,7 @@ class E6B(object):
         return pressure_alt + 118.8 * (oat_cel - ISA)
 
     def ground_speed(self, course, true_airspeed, wind_dir, wind_speed, true_heading):
-        return (true_airspeed*math.cos(math.radians(course-true_heading))) + ( wind_speed * math.cos( math.radians(course-wind_dir+180) ) )
+        return round(((true_airspeed*math.cos(math.radians(course-true_heading))) + ( wind_speed * math.cos( math.radians(course-wind_dir+180) ) )), 2)
 
 #    def flight_time(self, distance, climb_distance, climb_time, ground_speed, dept_ap_xtra_flt_time, arrv_ap_xtra_flt_time, global_xtra_flt_time):
 #        if (distance-climb_distance < 0):
@@ -145,9 +145,11 @@ class E6B(object):
             (float) -- Amount of fuel required [gl]
         '''
         #Compute minimum fuel required for the leg
-        return (ac_taxi_fuel_gl) + \
+        return round( \
+                (ac_taxi_fuel_gl) + \
                 ((ac_climb_fuelburn_alt_lbs/ac_fuel_type_lbs)) + \
-                ((( (leg_flight_time_min - leg_climb_time_alt_min)/60 ) * ac_cruise_fuel_flow_alt_lb_hr)/ ac_fuel_type_lbs)
+                ((( (leg_flight_time_min - leg_climb_time_alt_min)/60 ) * ac_cruise_fuel_flow_alt_lb_hr)/ ac_fuel_type_lbs)\
+                , 1)
 
 def mins_to_hr_min(mins):
     hrs_frac = mins/60
@@ -264,10 +266,10 @@ def load_aircraft(AC, pilots=[], pax=[], pax_bag=[] ):
 def run_leg_sim(AP1, AP2, AC, CREW, PAYLOAD):
     #### CALCULATE FLIGHT TIME BASED ON NEW MODEL AND CALCULATIONS
     # FACTUAL INFORMATION
-    course = e6b.true_course(AP1.coord, AP2.coord) #Calculate course with E6B helper functions
-    distance = great_circle(AP1.coord, AP2.coord) #Calculate distance with great_circle function from GeoPy Python package
+    course = round(e6b.true_course(AP1.coord, AP2.coord),2) #Calculate course with E6B helper functions
+    distance = round(great_circle(AP1.coord, AP2.coord).nm, 2) #Calculate distance with great_circle function from GeoPy Python package
     #df - pandas data frame with csv data from T.F.D.C @ ISA chart
-    altitude_prof = opt_climb_alt(distance.nm, df) # Find optimal crusing altitude profile for the aircraft based on the leg distance
+    altitude_prof = opt_climb_alt(distance, df) # Find optimal crusing altitude profile for the aircraft based on the leg distance
     ##### CLIMB SECTION
     climb_sect_tas = df.ix[altitude_prof].tas #Retrieve True AirSpeed from Aircraft Performance Chart (Climb section)
     climb_sect_wca = e6b.wind_correction_angle(course, climb_sect_tas, WIND_heading, WIND_speed*0.5)
@@ -276,7 +278,7 @@ def run_leg_sim(AP1, AP2, AC, CREW, PAYLOAD):
     climb_sect_alt = df.ix[altitude_prof].alt
     climb_sect_time = df.ix[altitude_prof].time
     climb_sect_dist_lookup = df.ix[altitude_prof].dist
-    climb_sect_dist_calc = climb_sect_gs * (climb_sect_time/60)
+    climb_sect_dist_calc = round(climb_sect_gs * (climb_sect_time/60),1)
     climb_sect_dist_diff = climb_sect_dist_calc - climb_sect_dist_lookup
     climb_sect_fuel_burn = df.ix[altitude_prof].fuel
     
@@ -285,10 +287,10 @@ def run_leg_sim(AP1, AP2, AC, CREW, PAYLOAD):
     cruise_sect_wca = e6b.wind_correction_angle(course, cruise_sect_tas, WIND_heading, WIND_speed)
     cruise_sect_true_heading = cruise_sect_wca + course
     cruise_sect_gs = e6b.ground_speed(course, cruise_sect_tas, WIND_heading, WIND_speed, cruise_sect_true_heading) # this ground speed is wind adjusted
-    cruise_sect_dist_lookup = distance.nm-climb_sect_dist_lookup
-    cruise_sect_dist_calc = distance.nm-climb_sect_dist_calc
-    cruise_sect_time_lookup = (cruise_sect_dist_lookup/cruise_sect_gs) * 60
-    cruise_sect_time_calc = (cruise_sect_dist_calc/cruise_sect_gs) * 60
+    cruise_sect_dist_lookup = distance-climb_sect_dist_lookup
+    cruise_sect_dist_calc = distance-climb_sect_dist_calc
+    cruise_sect_time_lookup = round((cruise_sect_dist_lookup/cruise_sect_gs) * 60, 2)
+    cruise_sect_time_calc = round((cruise_sect_dist_calc/cruise_sect_gs) * 60, 1)
     cruise_sect_time_diff = cruise_sect_time_calc - cruise_sect_time_lookup
     cruise_sect_fuel_flow = cruise_df.ix[climb_sect_alt].fuel_flow
     flight_time_lookup = climb_sect_time + cruise_sect_time_lookup
@@ -297,7 +299,7 @@ def run_leg_sim(AP1, AP2, AC, CREW, PAYLOAD):
     #Compute fuel consumption calculations
     leg_min_fuel_req = e6b.leg_min_fuel_req(4.5, climb_sect_fuel_burn, AC.fuel_weight, flight_time_calc, climb_sect_time, cruise_sect_fuel_flow )
     leg_fuel_req = leg_min_fuel_req + 45
-    leg_fuel_req_lbs = leg_fuel_req * AC.fuel_weight
+    leg_fuel_req_lbs = round(leg_fuel_req * AC.fuel_weight , 2)
     if (leg_fuel_req > AC.max_fuel_capacity):
         print('Maximum Fuel Capacity limit exceeded: '+str(leg_fuel_req))
 
@@ -340,7 +342,7 @@ def run_leg_sim(AP1, AP2, AC, CREW, PAYLOAD):
     #avail_tankering_fuel_g = AC.max_fuel_capacity - max_tankering_fuel_g
 
     #GENERATE PANDA DATAFRAME Data
-    flight_data = {'dept_ap':AP1.code, 'arrv_ap':AP2.code,'great_circle':distance.nm, 'course':course, \
+    flight_data = {'dept_ap':AP1.code, 'arrv_ap':AP2.code,'great_circle':distance, 'course':course, \
             'climb_alt': climb_sect_alt, 'climb_tas':df.ix[altitude_prof].tas, \
             'climb_time':climb_sect_time, 'climb_gs':climb_sect_gs, 'climb_distC':climb_sect_dist_calc, 'climb_distL':climb_sect_dist_lookup,\
             'cruise_tas':cruise_sect_tas, 'cruise_timeC':cruise_sect_time_calc, 'cruise_timeL':cruise_sect_time_lookup, 'cruise_gs':cruise_sect_gs, \
@@ -357,9 +359,9 @@ def run_leg_sim(AP1, AP2, AC, CREW, PAYLOAD):
 
 # Prepare Panda DataFrame for adding computations to it
 dfA = pd.DataFrame(columns=['dept_ap','arrv_ap','great_circle','course', \
-        'climb_alt', 'climb_tas','climb_time','climb_gs', 'climb_distC','climb_distL',\
-        'cruise_tas','cruise_timeC','cruise_timeL','cruise_gs','cruise_distC','cruise_distL',\
-        'flight_timeC', 'flight_timeL', 'min_fuel_req', 'fuel_req',\
+        'climb_alt', 'climb_tas','climb_time','climb_gs', 'climb_distC','climb_distL', \
+        'cruise_tas','cruise_timeC','cruise_timeL','cruise_gs','cruise_distC','cruise_distL', \
+        'flight_timeC', 'flight_timeL', 'min_fuel_req', 'fuel_req', \
         'fuel_req_weight','remaining_tank_gl', 'zfw', 'weight_onramp', 'weight_ontakeoff','weight_onlanding','max_tankering_wgt', 'max_tankering_fuel'])
 
 def sim():
@@ -381,9 +383,18 @@ def sim():
     dfA.loc[11] = run_leg_sim(AP1,Airport.objects.get(code__exact='KEKQ'),AC,CREW,PAYLOAD)
     dfA.loc[12] = run_leg_sim(AP1,Airport.objects.get(code__exact='KSDF'),AC,CREW,PAYLOAD)
     dfA.loc[13] = run_leg_sim(AP1,Airport.objects.get(code__exact='KSBN'),AC,CREW,PAYLOAD)
+    dfA.loc[14] = run_leg_sim(AP1,Airport.objects.get(code__exact='CYLD'),AC,CREW,PAYLOAD)
 
     #WEST BOUND
+    dfA.loc[15] = run_leg_sim(AP1,Airport.objects.get(code__exact='KUOS'),AC,CREW,PAYLOAD)
+    dfA.loc[16] = run_leg_sim(AP1,Airport.objects.get(code__exact='K2M2'),AC,CREW,PAYLOAD)
+    dfA.loc[17] = run_leg_sim(AP1,Airport.objects.get(code__exact='KMEM'),AC,CREW,PAYLOAD)
+    dfA.loc[18] = run_leg_sim(AP1,Airport.objects.get(code__exact='KRUE'),AC,CREW,PAYLOAD)
+    dfA.loc[19] = run_leg_sim(AP1,Airport.objects.get(code__exact='KAMA'),AC,CREW,PAYLOAD)
+    dfA.loc[20] = run_leg_sim(AP1,Airport.objects.get(code__exact='KAPA'),AC,CREW,PAYLOAD)
 
 #(hour, mins) = mins_to_hr_min(flight_time)
 
+def export_csv():
+    dfA.to_csv('simulation.csv',float_format='%.2f')
 
