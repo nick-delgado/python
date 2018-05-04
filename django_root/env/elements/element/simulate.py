@@ -169,60 +169,55 @@ def opt_climb_alt(distance, tfdc_chart_df):
 WIND_heading = 266
 WIND_speed = 44
 
-###########AIRPORT ONE
-AP1 = Airport()
-AP1.code = 'CHA'
-AP1.LAT = 35.035278
-AP1.LONG = -85.203889
-AP1.ALT = 683
-###########AIRPORT TWO
-AP2 = Airport()
-AP2.code = 'SFB'
-AP2.LAT = 28.777778
-AP2.LONG = -81.2375
-AP2.ALT = 55
-###############
-AP3 = Airport()
-AP3.code = 'RMG'
-AP3.LAT = 34.3507778
-AP3.LONG = -85.1586667
-AP3.ALT = 644
-#################
-AP4 = Airport()
-AP4.code = 'ORL'
-AP4.LAT = 28.5454722
-AP4.LONG = -81.3329167
-AP4.ALT = 112
-#################
-AP5 = Airport()
-AP5.code = '0G7'
-AP5.LAT = 42.8835556
-AP5.LONG = -76.7811667
-AP5.ALT = 491
-#################
-AP6 = Airport()
-AP6.code = 'TYS'
-AP6.LAT = 35.8093739
-AP6.LONG = -83.9953214
-AP6.ALT = 979
-#################
-AP7 = Airport()
-AP7.code = 'MEM'
-AP7.LAT = 35.0424167
-AP7.LONG = -89.9766667
-AP7.ALT = 979
-#################
-AP8 = Airport()
-AP8.code = 'VGT'
-AP8.LAT = 36.2106944
-AP8.LONG = -115.1944444
-AP8.ALT = 979
-####
-AP9 = Airport()
-AP9.code = 'JLN'
-AP9.LAT = 37.1531683
-AP9.LONG = -94.4988078
-AP9.ALT = 977
+##### AIRPORTS #####
+AP1 = Airport(code='KCHA',LAT=35.035278,LONG=-85.203889,ALT=683)
+#AP2 = Airport()
+#AP2.code = 'SFB'
+#AP2.LAT = 28.777778
+#AP2.LONG = -81.2375
+#AP2.ALT = 55
+################
+#AP3 = Airport()
+#AP3.code = 'RMG'
+#AP3.LAT = 34.3507778
+#AP3.LONG = -85.1586667
+#AP3.ALT = 644
+##################
+#AP4 = Airport()
+#AP4.code = 'ORL'
+#AP4.LAT = 28.5454722
+#AP4.LONG = -81.3329167
+#AP4.ALT = 112
+##################
+#AP5 = Airport()
+#AP5.code = '0G7'
+#AP5.LAT = 42.8835556
+#AP5.LONG = -76.7811667
+#AP5.ALT = 491
+##################
+#AP6 = Airport()
+#AP6.code = 'TYS'
+#AP6.LAT = 35.8093739
+#AP6.LONG = -83.9953214
+#AP6.ALT = 979
+##################
+#AP7 = Airport()
+#AP7.code = 'MEM'
+#AP7.LAT = 35.0424167
+#AP7.LONG = -89.9766667
+#AP7.ALT = 979
+##################
+#AP8 = Airport()
+#AP8.code = 'VGT'
+#AP8.LAT = 36.2106944
+#AP8.LONG = -115.1944444
+#AP8.ALT = 979
+#####
+#AP9 = Airport()
+#AP9.code = 'JLN'
+#AP9.LAT = 37.1531683
+#AP9.LONG = -94.4988078
+#AP9.ALT = 977
 ############ AIRCRAFT
 AC = Aircraft('N32RT')
 AC.cruising_speed = 340
@@ -253,7 +248,7 @@ PAYLOAD = PAYLOAD()
 PAYLOAD.weight = 800
 e6b = E6B() # Init E6B core computing functions tool
 
-midpoint = e6b.midpoint(AP1.coord, AP2.coord)
+#midpoint = e6b.midpoint(AP1.coord, AP2.coord)
 #point200m_away = e6b.point_on_path(AP1.coord, course, 200)
 
 #figure out the payload (1-2 pilots, pax weight, baggage weight)
@@ -345,11 +340,14 @@ def run_leg_sim(AP1, AP2, AC, CREW, PAYLOAD):
     #avail_tankering_fuel_g = AC.max_fuel_capacity - max_tankering_fuel_g
 
     #GENERATE PANDA DATAFRAME Data
-    flight_data = {'dept_ap':AP1.code, 'arrv_ap':AP2.code,'great_circle':distance.nm, 'course':course, 'climb_alt': climb_sect_alt, 'climb_tas':df.ix[altitude_prof].tas, \
-            'climb_time':climb_sect_time, 'climb_gs':climb_sect_gs, 'climb_distC':climb_sect_dist_calc, 'climb_distL':climb_sect_dist_lookup,'V':'|',\
+    flight_data = {'dept_ap':AP1.code, 'arrv_ap':AP2.code,'great_circle':distance.nm, 'course':course, \
+            'climb_alt': climb_sect_alt, 'climb_tas':df.ix[altitude_prof].tas, \
+            'climb_time':climb_sect_time, 'climb_gs':climb_sect_gs, 'climb_distC':climb_sect_dist_calc, 'climb_distL':climb_sect_dist_lookup,\
             'cruise_tas':cruise_sect_tas, 'cruise_timeC':cruise_sect_time_calc, 'cruise_timeL':cruise_sect_time_lookup, 'cruise_gs':cruise_sect_gs, \
             'cruise_distC':cruise_sect_dist_calc, 'cruise_distL':cruise_sect_dist_lookup, 'flight_timeC':flight_time_calc, 'flight_timeL':flight_time_lookup, \
-            'min_fuel_req':leg_min_fuel_req, 'fuel_req':leg_fuel_req, 'fuel_req_weight':leg_fuel_req_lbs,'remaining_tank_gl':remaining_tank_gl, 'weight_ontakeoff':weight_ontakeoff, 'weight_onlanding':weight_onlanding,'max_tankering_wgt':max_tankering_fuel_lbs, 'max_tankering_fuel':max_tankering_fuel_g}
+            'min_fuel_req':leg_min_fuel_req, 'fuel_req':leg_fuel_req, 'fuel_req_weight':leg_fuel_req_lbs,'remaining_tank_gl':remaining_tank_gl,\
+            'zfw':weight_zero_fuel_weight,'weight_onramp':weight_onramp, 'weight_ontakeoff':weight_ontakeoff, 'weight_onlanding':weight_onlanding,'max_tankering_wgt':max_tankering_fuel_lbs, \
+            'max_tankering_fuel':max_tankering_fuel_g}
     return flight_data
 
 
@@ -358,27 +356,33 @@ def run_leg_sim(AP1, AP2, AC, CREW, PAYLOAD):
 ##########################
 
 # Prepare Panda DataFrame for adding computations to it
-dfA = pd.DataFrame(columns=['dept_ap','arrv_ap','great_circle','course', 'climb_alt', 'climb_tas','climb_time','climb_gs', 'climb_distC','climb_distL','V',\
-        'cruise_tas','cruise_timeC','cruise_timeL','cruise_gs','cruise_distC','cruise_distL','flight_timeC', 'flight_timeL', 'min_fuel_req', 'fuel_req',\
-        'fuel_req_weight','remaining_tank_gl', 'weight_ontakeoff','weight_onlanding','max_tankering_wgt', 'max_tankering_fuel'])
+dfA = pd.DataFrame(columns=['dept_ap','arrv_ap','great_circle','course', \
+        'climb_alt', 'climb_tas','climb_time','climb_gs', 'climb_distC','climb_distL',\
+        'cruise_tas','cruise_timeC','cruise_timeL','cruise_gs','cruise_distC','cruise_distL',\
+        'flight_timeC', 'flight_timeL', 'min_fuel_req', 'fuel_req',\
+        'fuel_req_weight','remaining_tank_gl', 'zfw', 'weight_onramp', 'weight_ontakeoff','weight_onlanding','max_tankering_wgt', 'max_tankering_fuel'])
 
 def sim():
-    result_data = run_leg_sim(AP1,AP2,AC,CREW,PAYLOAD)
-    dfA.loc[0] = result_data
-    result_dataB = run_leg_sim(AP1,AP3,AC,CREW,PAYLOAD)
-    dfA.loc[1] = result_dataB
-    result_dataC = run_leg_sim(AP1,AP4,AC,CREW,PAYLOAD)
-    dfA.loc[2] = result_dataC
-    result_dataD = run_leg_sim(AP1,AP5,AC,CREW,PAYLOAD)
-    dfA.loc[3] = result_dataD
-    result_dataE = run_leg_sim(AP1,AP6,AC,CREW,PAYLOAD)
-    dfA.loc[4] = result_dataE
-    result_dataF = run_leg_sim(AP1,AP7,AC,CREW,PAYLOAD)
-    dfA.loc[5] = result_dataF
-    result_dataG = run_leg_sim(AP1,AP8,AC,CREW,PAYLOAD)
-    dfA.loc[6] = result_dataG
-    result_dataH = run_leg_sim(AP1,AP9,AC,CREW,PAYLOAD)
-    dfA.loc[7] = result_dataH
+    #SOUTH BOUND
+    dfA.loc[0] = run_leg_sim(AP1,Airport.objects.get(code__exact='KRMG'),AC,CREW,PAYLOAD)
+    dfA.loc[1] = run_leg_sim(AP1,Airport.objects.get(code__exact='KASN'),AC,CREW,PAYLOAD)
+    dfA.loc[2] = run_leg_sim(AP1,Airport.objects.get(code__exact='11A'),AC,CREW,PAYLOAD)
+    dfA.loc[3] = run_leg_sim(AP1,Airport.objects.get(code__exact='KINF'),AC,CREW,PAYLOAD)
+    dfA.loc[4] = run_leg_sim(AP1,Airport.objects.get(code__exact='MUSC'),AC,CREW,PAYLOAD)
+    
+    #EAST BOUND
+    dfA.loc[5] = run_leg_sim(AP1,Airport.objects.get(code__exact='K1A3'),AC,CREW,PAYLOAD)
+    dfA.loc[6] = run_leg_sim(AP1,Airport.objects.get(code__exact='K24A'),AC,CREW,PAYLOAD)
+    dfA.loc[7] = run_leg_sim(AP1,Airport.objects.get(code__exact='KCLT'),AC,CREW,PAYLOAD)
+    dfA.loc[8] = run_leg_sim(AP1,Airport.objects.get(code__exact='KEWN'),AC,CREW,PAYLOAD)
+    dfA.loc[9] = run_leg_sim(AP1,Airport.objects.get(code__exact='TXKF'),AC,CREW,PAYLOAD)
+    #NORTH BOUND
+    dfA.loc[10] = run_leg_sim(AP1,Airport.objects.get(code__exact='KCSV'),AC,CREW,PAYLOAD)
+    dfA.loc[11] = run_leg_sim(AP1,Airport.objects.get(code__exact='KEKQ'),AC,CREW,PAYLOAD)
+    dfA.loc[12] = run_leg_sim(AP1,Airport.objects.get(code__exact='KSDF'),AC,CREW,PAYLOAD)
+    dfA.loc[13] = run_leg_sim(AP1,Airport.objects.get(code__exact='KSBN'),AC,CREW,PAYLOAD)
+
+    #WEST BOUND
 
 #(hour, mins) = mins_to_hr_min(flight_time)
 
