@@ -1,3 +1,21 @@
+#############################
+# Interpolator : 
+# Program used to interpolate data between different 'levels' or 'steps'
+# of a chart      
+
+#i          FL350  ____________
+#                 /
+# FL250 _________/     <<<<
+#      /                <<<
+#     /                  <<
+#    / FL180             << WINDS
+# 
+# In this project it is used for interpolating seasonal winds from different
+# data sources where not all the flight levels (FL) are defined
+# and also to interpolate the performance data of an aircraft
+# based on the data from the Time, Fuel, and Distance to Climb chart
+# as well as the Cruise Performance chart
+#############################
 from scipy import interpolate
 import numpy as np
 import pandas as pd
