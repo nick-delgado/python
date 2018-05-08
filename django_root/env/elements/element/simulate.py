@@ -209,5 +209,5 @@ def sim():
 #(hour, mins) = mins_to_hr_min(flight_time)
 
 def export_csv():
-    dfA.to_csv('simulation.csv',float_format='%.2f')
+    dfA.to_csv('result-simulation.csv',float_format='%.2f')
 

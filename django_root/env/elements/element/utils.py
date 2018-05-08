@@ -1,4 +1,4 @@
-
+import math
 class E6B(object):
     '''
     FUNCTIONS
