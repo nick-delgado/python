@@ -34,7 +34,7 @@ class Aircraft(models.Model):
     climb_fuel = models.IntegerField(default=25)
     climb_dist = models.IntegerField(default=80)
 
-#    def optimal_altitude(distance, tfdc_chart_df:
+#    def optimal_altitude(distance, tfdc_chart_df):
 #        oa = self.distance/6 #Dividing the total distance by a factor of 6 seems to approximate to the max climbing self.distance for chart lookup
 #        altitude_prof= 0
 #        for index,row in tfdc_chart_df.iterrows():
