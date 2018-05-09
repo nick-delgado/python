@@ -35,15 +35,11 @@ class Aircraft(models.Model):
     climb_dist = models.IntegerField(default=80)
     # PERFORMANCE CHARTS
     # ...store them as JSON files and then load them into Pandas DataFrame
+    #climb_chart = models.JSONField()
+    #cruise_chart = models.JSONField()
+    global df
 
-#    def optimal_altitude(distance, tfdc_chart_df):
-#        oa = self.distance/6 #Dividing the total distance by a factor of 6 seems to approximate to the max climbing self.distance for chart lookup
-#        altitude_prof= 0
-#        for index,row in tfdc_chart_df.iterrows():
-#            altitude_prof = index
-#            if math.ceil(oa) - row.dist <= 0:
-#                break
-#        return altitude_prof
+
     def optimal_altitude(dist, course):
         '''
         ARGUMENTS
@@ -56,8 +52,8 @@ class Aircraft(models.Model):
         # Run various simulations/calculations
         #...for a given distance and heading
         #...to figure out which cruising altitude 
-        #...will be the best.
-        #...Course between [0-179] >> Odd Flight Levels (ie. FL230,FL250,FL270)
+        #...will be the best based on data from the A/C performance charts.
+        #...Course between [000-179] >> Odd Flight Levels (ie. FL230,FL250,FL270)
         #...Course between [180-359] >> Even Flight Levels (ie. FL220,FL240,FL260)
         #
         # Eliminate altitudes in climb/cruise performance chart based on whether
@@ -67,4 +63,6 @@ class Aircraft(models.Model):
         #...distance is less than twice the climbing distance
         
         # Remaining altitude profiles will be simulated, both climbing and cruise
-        #...and the best flight time selected
+        #...and the altitude with the best flight time  will be selected/returned
+
+        

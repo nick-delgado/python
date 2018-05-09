@@ -25,9 +25,9 @@ import sys,os
 def step_interpolate(flag):
     try:
         X1 = int(input("Starting altitude: "))
+        Y1 = float(input("Starting value: "))
         X2 = int(input("Ending altitude: "))
-        Y1 = int(input("Starting point for Y: "))
-        Y2 = int(input("Ending point for Y: "))
+        Y2 = float(input("Ending value: "))
     except KeyboardInterrupt:
         print("\n\r---INTERRUPTED---")
         try:
@@ -62,4 +62,4 @@ for step in range(0,int(steps)):
 
 print(intp_df)
 OF = input("File Name:")
-intp_df.to_csv(str(OF),index=False)
+intp_df.to_csv(str(OF),index=False,float_format='%.2f')
