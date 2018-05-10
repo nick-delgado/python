@@ -1,6 +1,7 @@
 from django.db import models
 from aircraft.tmp_perf_chart import *
 from tmp_winds import *
+from utils import E6B
 
 
 
@@ -79,7 +80,7 @@ class Aircraft(models.Model):
         print(max_climbing_alt_lvl)
         #...make sure that the simulation doesn't go above the maximum allowed altitude set
         #...by the operator for this aircraft
-        max_cruising_alt_lvl = 400 #TODO PULL FROM DATABASE <<<!!!>>>
+        max_cruising_alt_lvl = 350 #TODO PULL FROM DATABASE <<<!!!>>>
         #...which of the altitude levels is the least? Use that as the limit
         limit_alt_lvl = max_climbing_alt_lvl if (max_climbing_alt_lvl-max_cruising_alt_lvl < 0) else max_cruising_alt_lvl
         filter_climb_perf = df_climb_perf.loc[df_climb_perf['alt'] <= limit_alt_lvl]
@@ -89,7 +90,7 @@ class Aircraft(models.Model):
         # Remaining altitude profiles will be simulated, both climbing and cruise
         #...and the altitude with the best flight time  will be selected/returned
         possible_alt_lvl = []
-        for alt_lvl in range(0,limit_alt_lvl+10,10):
+        for alt_lvl in range(90,limit_alt_lvl+10,10):
             if (alt_lvl%20 == 0): #...the altitude is even
                 if use_odd_alt: #...and we are using odd altitudes
                     pass
@@ -107,6 +108,7 @@ class Aircraft(models.Model):
         optimal_altitude = 0
         print(possible_alt_lvl)
 
+        e6b = E6B()
         for alt_lvl in possible_alt_lvl:
             # CLIMB SECTION
             sim_climb_time = float(filter_climb_perf.loc[filter_climb_perf['alt']==alt_lvl]['time'])
@@ -117,9 +119,14 @@ class Aircraft(models.Model):
             sim_cruise_dist = dist - sim_climb_dist
             sim_cruise_tas = float(filter_cruise_perf.loc[filter_cruise_perf['alt']==alt_lvl]['tas'])
             sim_cruise_flow = float(filter_cruise_perf.loc[filter_cruise_perf['alt']==alt_lvl]['flow'])
-            sim_cruise_time_hr = sim_cruise_dist / sim_cruise_tas
+            sim_cruise_wca = e6b.wind_correction_angle(course, sim_cruise_tas, SWDF_mar.loc[SWDF_mar['alt']==alt_lvl]['dir'], SWDF_mar.loc[SWDF_mar['alt']==alt_lvl]['speed'])
+            sim_cruise_true = sim_cruise_wca + course
+            sim_cruise_gs = e6b.ground_speed(course, sim_cruise_tas, SWDF_mar.loc[SWDF_mar['alt']==alt_lvl]['dir'], SWDF_mar.loc[SWDF_mar['alt']==alt_lvl]['speed'], sim_cruise_true) # this ground speed is wind adjusted
+            sim_cruise_time_hr = float(sim_cruise_dist / sim_cruise_gs)
             sim_cruise_fuel = sim_cruise_flow * sim_cruise_time_hr
             sim_cruise_time = sim_cruise_time_hr*60
+
+            #OVERALL FLIGHT
             sim_flight_time = sim_climb_time + sim_cruise_time
             sim_total_fuel = sim_climb_fuel + sim_cruise_fuel
             # ... now that we have the simulation flight time and fuel burned, weight those two variables
