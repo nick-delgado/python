@@ -40,7 +40,8 @@ INSTALLED_APPS = [
     'corsheaders',
     'rest_framework',
     'aircraft',
-    'airport'
+    'airport',
+    'django_extensions'
 ]
 
 MIDDLEWARE = [
