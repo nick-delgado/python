@@ -44,7 +44,7 @@ class Aircraft(models.Model):
     #cruise_chart = models.JSONField()
 
 
-    def optimal_altitude(self, dist, course):
+    def optimal_altitude(self, dist, course, time_cost_min=13.33, fuel_cost_lbs=1.16):
         '''
         ARGUMENTS
             dist    > Great-circle distance in nm
@@ -105,6 +105,8 @@ class Aircraft(models.Model):
         #Now we have the possible altitude levels that we can travel on
         #...compute all the possible flight times and see which one results in the shortest
         shortest_flight_time = 100000000000000 # ..an insanely large number (mins)
+        least_cost = 10000000000000000
+        least_fuel_usage = 10000000000000
         optimal_altitude = 0
         print(possible_alt_lvl)
 
@@ -119,24 +121,36 @@ class Aircraft(models.Model):
             sim_cruise_dist = dist - sim_climb_dist
             sim_cruise_tas = float(filter_cruise_perf.loc[filter_cruise_perf['alt']==alt_lvl]['tas'])
             sim_cruise_flow = float(filter_cruise_perf.loc[filter_cruise_perf['alt']==alt_lvl]['flow'])
-            sim_cruise_wca = e6b.wind_correction_angle(course, sim_cruise_tas, SWDF_mar.loc[SWDF_mar['alt']==alt_lvl]['dir'], SWDF_mar.loc[SWDF_mar['alt']==alt_lvl]['speed'])
+            sim_cruise_wca = e6b.wind_correction_angle(course, sim_cruise_tas, \
+                    SWDF_may.loc[SWDF_may['alt']==alt_lvl]['dir'], \
+                    SWDF_may.loc[SWDF_may['alt']==alt_lvl]['speed'])
             sim_cruise_true = sim_cruise_wca + course
-            sim_cruise_gs = e6b.ground_speed(course, sim_cruise_tas, SWDF_mar.loc[SWDF_mar['alt']==alt_lvl]['dir'], SWDF_mar.loc[SWDF_mar['alt']==alt_lvl]['speed'], sim_cruise_true) # this ground speed is wind adjusted
+            sim_cruise_gs = e6b.ground_speed(course, sim_cruise_tas, \
+                    SWDF_may.loc[SWDF_may['alt']==alt_lvl]['dir'], \
+                    SWDF_may.loc[SWDF_may['alt']==alt_lvl]['speed'], \
+                    sim_cruise_true) 
             sim_cruise_time_hr = float(sim_cruise_dist / sim_cruise_gs)
-            sim_cruise_fuel = sim_cruise_flow * sim_cruise_time_hr
-            sim_cruise_time = sim_cruise_time_hr*60
+            sim_cruise_fuel = round(sim_cruise_flow * sim_cruise_time_hr,2)
+            sim_cruise_time = int(round(sim_cruise_time_hr*60,2))
 
             #OVERALL FLIGHT
-            sim_flight_time = sim_climb_time + sim_cruise_time
-            sim_total_fuel = sim_climb_fuel + sim_cruise_fuel
-            # ... now that we have the simulation flight time and fuel burned, weight those two variables
-            
-            if (sim_flight_time < shortest_flight_time):
+            sim_flight_time = float(round(sim_climb_time + sim_cruise_time, 2))
+            sim_total_fuel = float(round(sim_climb_fuel + sim_cruise_fuel, 2))
+            #...now that we have the total flight time and total fuel consumed at that altitude do a cost indexing
+            sim_flight_time_cost = float(round(sim_flight_time * time_cost_min,2))
+            sim_total_fuel_cost = float(round(sim_total_fuel * fuel_cost_lbs,2))
+            sim_cost = sim_flight_time_cost + sim_total_fuel_cost
+
+            #sim_score = round((time_factor * sim_flight_time) + (sim_total_fuel * fuel_factor))
+            if (sim_cost <= least_cost):
+                least_cost = sim_cost
                 shortest_flight_time = sim_flight_time
+                least_fuel_usage = sim_total_fuel
                 optimal_altitude = alt_lvl
 
-            print("[ALT "+str(alt_lvl)+"] (Climb: "+ str(sim_climb_time) + " min | "+str(sim_climb_dist)+" nm | "+str(sim_climb_fuel)+" lbs)  >> "\
-                    +"(Cruise: "+str(sim_cruise_time)+" min | "+str(sim_cruise_dist)+" nm | "+str(sim_cruise_fuel)+" lbs | "\
-                    +str(sim_cruise_tas)+" nmph) \n     ===> "+str(sim_flight_time) + "min  \n     ===> "+str(sim_total_fuel)+" lbs")
+            print("[ALT "+str(alt_lvl)+"] (Climb: "+ str(sim_climb_time) + "min | "+str(sim_climb_dist)+"nm | "+str(round(sim_climb_fuel,2))+"lbs) / "\
+                    +"(Cruise: "+str(sim_cruise_time)+"min | "+str(sim_cruise_dist)+"nm | "+str(sim_cruise_fuel)+"lbs | "\
+                    +str(sim_cruise_tas)+"nmph) \n     ===> "+str(sim_flight_time) + "min  \n     ===> "+str(sim_total_fuel)+" lbs" \
+                    +"\n    ==========>> COST: "+str(sim_cost)) 
 
-        print("RECOMMENDED ALTITUDE: " + str(optimal_altitude) + "  FLIGHT TIME="+str(shortest_flight_time))
+        print("RECOMMENDED ALTITUDE: " + str(optimal_altitude) + "  FLIGHT TIME="+str(shortest_flight_time)+"min  >  FUEL BURNED: "+str(least_fuel_usage))
