@@ -80,38 +80,64 @@ def run_leg_sim(AP1, AP2, AC, CREW, PAYLOAD):
     course = round(e6b.true_course(AP1.coord, AP2.coord),2) #Calculate course with E6B helper functions
     distance = round(great_circle(AP1.coord, AP2.coord).nm, 2) #Calculate distance with great_circle function from GeoPy Python package
     #df - pandas data frame with csv data from T.F.D.C @ ISA chart
-    altitude_prof = opt_climb_alt(distance, df) # Find optimal crusing altitude profile for the aircraft based on the leg distance
-    ##### CLIMB SECTION
-    climb_sect_tas = df.ix[altitude_prof].tas #Retrieve True AirSpeed from Aircraft Performance Chart (Climb section)
-    #with calculations
-    climb_sect_wca = e6b.wind_correction_angle(course, climb_sect_tas, WIND_heading, WIND_speed*0.5)
-    climb_sect_true_heading = climb_sect_wca + course
-    climb_sect_gs = e6b.ground_speed(course, df.ix[altitude_prof].tas, WIND_heading, WIND_speed*0.5, climb_sect_true_heading)
+    max_altitude = 410 # GET aircraft max climbing altitude based on operator
+    global SWDF_may
+    sim_climb_cruise_chart = AC.calc_performances(distance, course, max_altitude, SWDF_may)
 
-    climb_sect_alt = df.ix[altitude_prof].alt
-    climb_sect_time = df.ix[altitude_prof].time
-    climb_sect_dist_lookup = df.ix[altitude_prof].dist
-    climb_sect_dist_calc = round(climb_sect_gs * (climb_sect_time/60),1)
-    climb_sect_dist_diff = climb_sect_dist_calc - climb_sect_dist_lookup
-    climb_sect_fuel_burn = df.ix[altitude_prof].fuel
+    # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< START >>>>>>>>>>>>>>>>>>>>>>>>>
+#    altitude_prof = opt_climb_alt(distance, df) # Find optimal crusing altitude profile for the aircraft based on the leg distance
+#    ##### CLIMB SECTION
+#    climb_sect_tas = df.ix[altitude_prof].tas #Retrieve True AirSpeed from Aircraft Performance Chart (Climb section)
+#    #with calculations
+#    climb_sect_wca = e6b.wind_correction_angle(course, climb_sect_tas, WIND_heading, WIND_speed*0.5)
+#    climb_sect_true_heading = climb_sect_wca + course
+#    climb_sect_gs = e6b.ground_speed(course, df.ix[altitude_prof].tas, WIND_heading, WIND_speed*0.5, climb_sect_true_heading)
+#
+#    climb_sect_alt = df.ix[altitude_prof].alt
+#    climb_sect_time = df.ix[altitude_prof].time
+#    climb_sect_dist_lookup = df.ix[altitude_prof].dist
+#    climb_sect_dist_calc = round(climb_sect_gs * (climb_sect_time/60),1)
+#    climb_sect_dist_diff = climb_sect_dist_calc - climb_sect_dist_lookup
+#    climb_sect_fuel_burn = df.ix[altitude_prof].fuel
+#    
+#    ##### CRUISE SECTION
+#    cruise_sect_tas = cruise_df.ix[climb_sect_alt].tas
+#    cruise_sect_wca = e6b.wind_correction_angle(course, cruise_sect_tas, WIND_heading, WIND_speed)
+#    cruise_sect_true_heading = cruise_sect_wca + course
+#    cruise_sect_gs = e6b.ground_speed(course, cruise_sect_tas, WIND_heading, WIND_speed, cruise_sect_true_heading) # this ground speed is wind adjusted
+#    cruise_sect_dist_lookup = distance-climb_sect_dist_lookup
+#    cruise_sect_dist_calc = distance-climb_sect_dist_calc
+#    cruise_sect_time_lookup = round((cruise_sect_dist_lookup/cruise_sect_gs) * 60, 2)
+#    cruise_sect_time_calc = round((cruise_sect_dist_calc/cruise_sect_gs) * 60, 1)
+#    cruise_sect_time_diff = cruise_sect_time_calc - cruise_sect_time_lookup
+#    cruise_sect_fuel_flow = cruise_df.ix[climb_sect_alt].fuel_flow
+#    flight_time_lookup = climb_sect_time + cruise_sect_time_lookup + 8
+#    flight_time_calc = climb_sect_time + cruise_sect_time_calc + 8
+#    
+#    #Compute fuel consumption calculations
+#    leg_min_fuel_req = e6b.leg_min_fuel_req(4.5, climb_sect_fuel_burn, AC.fuel_weight, flight_time_calc, climb_sect_time, cruise_sect_fuel_flow )
+#
+    #  <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< END >>>>>>>>>>>>>>>>>>>>>>>>>
+
+
+    #...At this point we have a DataFrame with the list of different flight levels and their respective flight time and fuel consumption
+    # __________________________
+    # | alt  |  time  |  fuel  |
+    # --------------------------
+    # | 30   |  24    |  148   |
+    # | 50   |  26    |  142   |
+    #  .....    ....     .....
     
-    ##### CRUISE SECTION
-    cruise_sect_tas = cruise_df.ix[climb_sect_alt].tas
-    cruise_sect_wca = e6b.wind_correction_angle(course, cruise_sect_tas, WIND_heading, WIND_speed)
-    cruise_sect_true_heading = cruise_sect_wca + course
-    cruise_sect_gs = e6b.ground_speed(course, cruise_sect_tas, WIND_heading, WIND_speed, cruise_sect_true_heading) # this ground speed is wind adjusted
-    cruise_sect_dist_lookup = distance-climb_sect_dist_lookup
-    cruise_sect_dist_calc = distance-climb_sect_dist_calc
-    cruise_sect_time_lookup = round((cruise_sect_dist_lookup/cruise_sect_gs) * 60, 2)
-    cruise_sect_time_calc = round((cruise_sect_dist_calc/cruise_sect_gs) * 60, 1)
-    cruise_sect_time_diff = cruise_sect_time_calc - cruise_sect_time_lookup
-    cruise_sect_fuel_flow = cruise_df.ix[climb_sect_alt].fuel_flow
-    flight_time_lookup = climb_sect_time + cruise_sect_time_lookup + 8
-    flight_time_calc = climb_sect_time + cruise_sect_time_calc + 8
-    
-    #Compute fuel consumption calculations
-    leg_min_fuel_req = e6b.leg_min_fuel_req(4.5, climb_sect_fuel_burn, AC.fuel_weight, flight_time_calc, climb_sect_time, cruise_sect_fuel_flow )
-    leg_fuel_req = leg_min_fuel_req + 45
+    # !!!! CAUTION !!!!!! ---- Fuel reserved are not factored into the fuel weight on the above DataFrame
+
+    # ...now we need to selected the optimal flight plan/altitude that will be the most cost effective
+    for index,sim_result in sim_climb_cruise_chart.iterrows():
+        #sim_result['time_cost'] = sim_result
+        print(sim_result)
+
+    fuel_reserve_lbs = 45 * AC.fuel_weight #...calculate the weight of the reserve fuel
+    # ...now add it to the weight of the fuel burned at the optimal altitude
+    leg_fuel_req = leg_min_fuel_req + 45 # ...so now need to add the fuel reserve
     leg_fuel_req_lbs = round(leg_fuel_req * AC.fuel_weight , 2)
     if (leg_fuel_req > AC.max_fuel_capacity):
         print('Maximum Fuel Capacity limit exceeded: '+str(leg_fuel_req))
