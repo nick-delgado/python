@@ -131,9 +131,14 @@ def run_leg_sim(AP1, AP2, AC, CREW, PAYLOAD):
     # !!!! CAUTION !!!!!! ---- Fuel reserved are not factored into the fuel weight on the above DataFrame
 
     # ...now we need to selected the optimal flight plan/altitude that will be the most cost effective
-    for index,sim_result in sim_climb_cruise_chart.iterrows():
+    sim_climb_cruise_chart['time_cost'] = sim_climb_cruise_chart.apply(lambda row: row.time * 13.33, axis=1)
+    sim_climb_cruise_chart['fuel_cost'] = sim_climb_cruise_chart.apply(lambda row: row.fuel * 1.16, axis=1)
+    sim_climb_cruise_chart['total_cost'] = sim_climb_cruise_chart.apply(lambda row: row.time_cost + row.fuel_cost, axis=1)
+
+    print(sim_climb_cruise_chart)
+    #for index,sim_result in sim_climb_cruise_chart.iterrows():
         #sim_result['time_cost'] = sim_result
-        print(sim_result)
+    #    print(sim_result)
 
     fuel_reserve_lbs = 45 * AC.fuel_weight #...calculate the weight of the reserve fuel
     # ...now add it to the weight of the fuel burned at the optimal altitude
