@@ -136,12 +136,17 @@ class Aircraft(models.Model):
             #OVERALL FLIGHT
             sim_flight_time = float(round(sim_climb_time + sim_cruise_time, 2))
             sim_total_fuel = float(round(sim_climb_fuel + sim_cruise_fuel, 2))
+            #...based on the total fuel, can the flight be made in one leg?
+            #...check wether the fuel weight in lbs, to gallons, is more than
+            #...max fuel capacity-reserve fuel qty (in lbs.)
+            # ie. fuel_lbs < (251 gal x 6.77lbs/gal) - (45 gal x 6.77 lbs/gal)
+
+            #...if not, return false
             #...now that we have the total flight time and total fuel consumed at that altitude do a cost indexing
             sim_flight_time_cost = float(round(sim_flight_time * time_cost_min,2))
             sim_total_fuel_cost = float(round(sim_total_fuel * fuel_cost_lbs,2))
             sim_cost = float(round(sim_flight_time_cost + sim_total_fuel_cost,2))
             #...now that we have the flight time and total fuel consumed then append it to the table
-            #RESULT = np.append(RESULT, [[alt_lvl, sim_flight_time, sim_total_fuel]], axis=0)
             ROW = pd.Series([alt_lvl,sim_flight_time, sim_total_fuel], ['alt', 'time', 'fuel'])
             RESULT = RESULT.append(ROW,ignore_index=True)
 
@@ -157,5 +162,5 @@ class Aircraft(models.Model):
             #        +str(sim_cruise_tas)+"nmph) \n     ===> "+str(sim_flight_time) + "min  \n     ===> "+str(sim_total_fuel)+" lbs" \
             #        +"\n    ==========>> COST: "+str(sim_cost)) 
 
-        print("RECOMMENDED ALTITUDE: " + str(optimal_altitude) + "  FLIGHT TIME="+str(shortest_flight_time)+"min  >  FUEL BURNED: "+str(least_fuel_usage))
+        #print("RECOMMENDED ALTITUDE: " + str(optimal_altitude) + "  FLIGHT TIME="+str(shortest_flight_time)+"min  >  FUEL BURNED: "+str(least_fuel_usage))
         return RESULT

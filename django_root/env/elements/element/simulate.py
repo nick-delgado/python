@@ -15,19 +15,6 @@ def mins_to_hr_min(mins):
     minutes = math.ceil( (hrs_frac % 1) * 60 )
     return (hr, minutes)
 
-#OPTIMAL CLIMBING ALTITUDE FOR A CERTAIN DISTANCE based on Aircraft Performance Chart of T.F.D. to Climb
-def opt_climb_alt(distance, tfdc_chart_df):
-    #Optimal Climb Altitude
-    oca = distance/6 #Dividing the total distance by a factor of 6 seems to approximate to the max climbing distance for chart lookup
-    altitude_prof= 0
-    for index,row in tfdc_chart_df.iterrows():
-        altitude_prof = index
-        if math.ceil(oca) - row.dist <= 0:
-            break
-    return altitude_prof
-
-WIND_heading = 277
-WIND_speed = 27
 
 ##### AIRPORTS #####
 AP1 = Airport(code='KCHA',LAT=35.035278,LONG=-85.203889,ALT=683)
@@ -84,42 +71,6 @@ def run_leg_sim(AP1, AP2, AC, CREW, PAYLOAD):
     global SWDF_may
     sim_climb_cruise_chart = AC.calc_performances(distance, course, max_altitude, SWDF_may)
 
-    # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< START >>>>>>>>>>>>>>>>>>>>>>>>>
-#    altitude_prof = opt_climb_alt(distance, df) # Find optimal crusing altitude profile for the aircraft based on the leg distance
-#    ##### CLIMB SECTION
-#    climb_sect_tas = df.ix[altitude_prof].tas #Retrieve True AirSpeed from Aircraft Performance Chart (Climb section)
-#    #with calculations
-#    climb_sect_wca = e6b.wind_correction_angle(course, climb_sect_tas, WIND_heading, WIND_speed*0.5)
-#    climb_sect_true_heading = climb_sect_wca + course
-#    climb_sect_gs = e6b.ground_speed(course, df.ix[altitude_prof].tas, WIND_heading, WIND_speed*0.5, climb_sect_true_heading)
-#
-#    climb_sect_alt = df.ix[altitude_prof].alt
-#    climb_sect_time = df.ix[altitude_prof].time
-#    climb_sect_dist_lookup = df.ix[altitude_prof].dist
-#    climb_sect_dist_calc = round(climb_sect_gs * (climb_sect_time/60),1)
-#    climb_sect_dist_diff = climb_sect_dist_calc - climb_sect_dist_lookup
-#    climb_sect_fuel_burn = df.ix[altitude_prof].fuel
-#    
-#    ##### CRUISE SECTION
-#    cruise_sect_tas = cruise_df.ix[climb_sect_alt].tas
-#    cruise_sect_wca = e6b.wind_correction_angle(course, cruise_sect_tas, WIND_heading, WIND_speed)
-#    cruise_sect_true_heading = cruise_sect_wca + course
-#    cruise_sect_gs = e6b.ground_speed(course, cruise_sect_tas, WIND_heading, WIND_speed, cruise_sect_true_heading) # this ground speed is wind adjusted
-#    cruise_sect_dist_lookup = distance-climb_sect_dist_lookup
-#    cruise_sect_dist_calc = distance-climb_sect_dist_calc
-#    cruise_sect_time_lookup = round((cruise_sect_dist_lookup/cruise_sect_gs) * 60, 2)
-#    cruise_sect_time_calc = round((cruise_sect_dist_calc/cruise_sect_gs) * 60, 1)
-#    cruise_sect_time_diff = cruise_sect_time_calc - cruise_sect_time_lookup
-#    cruise_sect_fuel_flow = cruise_df.ix[climb_sect_alt].fuel_flow
-#    flight_time_lookup = climb_sect_time + cruise_sect_time_lookup + 8
-#    flight_time_calc = climb_sect_time + cruise_sect_time_calc + 8
-#    
-#    #Compute fuel consumption calculations
-#    leg_min_fuel_req = e6b.leg_min_fuel_req(4.5, climb_sect_fuel_burn, AC.fuel_weight, flight_time_calc, climb_sect_time, cruise_sect_fuel_flow )
-#
-    #  <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< END >>>>>>>>>>>>>>>>>>>>>>>>>
-
-
     #...At this point we have a DataFrame with the list of different flight levels and their respective flight time and fuel consumption
     # __________________________
     # | alt  |  time  |  fuel  |
@@ -130,16 +81,23 @@ def run_leg_sim(AP1, AP2, AC, CREW, PAYLOAD):
     
     # !!!! CAUTION !!!!!! ---- Fuel reserved are not factored into the fuel weight on the above DataFrame
 
+    # Can this flight be done with only one tank or will it have to have a fuel stop
+
     # ...now we need to selected the optimal flight plan/altitude that will be the most cost effective
     sim_climb_cruise_chart['time_cost'] = sim_climb_cruise_chart.apply(lambda row: row.time * 13.33, axis=1)
     sim_climb_cruise_chart['fuel_cost'] = sim_climb_cruise_chart.apply(lambda row: row.fuel * 1.16, axis=1)
     sim_climb_cruise_chart['total_cost'] = sim_climb_cruise_chart.apply(lambda row: row.time_cost + row.fuel_cost, axis=1)
 
-    print(sim_climb_cruise_chart)
+    #...now select the row with the lowest total cost...that will be the 
+    #...most cost effective altitude
+    sim_selected = sim_climb_cruise_chart.loc[sim_climb_cruise_chart['total_cost'] == sim_climb_cruise_chart['total_cost'].min()]
+    
+    print(sim_selected)
     #for index,sim_result in sim_climb_cruise_chart.iterrows():
         #sim_result['time_cost'] = sim_result
     #    print(sim_result)
-
+    fuel = sim_selected['fuel']
+    leg_min_fuel_req = int(fuel)/AC.fuel_weight
     fuel_reserve_lbs = 45 * AC.fuel_weight #...calculate the weight of the reserve fuel
     # ...now add it to the weight of the fuel burned at the optimal altitude
     leg_fuel_req = leg_min_fuel_req + 45 # ...so now need to add the fuel reserve
@@ -185,16 +143,6 @@ def run_leg_sim(AP1, AP2, AC, CREW, PAYLOAD):
     max_tankering_fuel_g = max_tankering_fuel_lbs / AC.fuel_weight
     #avail_tankering_fuel_g = AC.max_fuel_capacity - max_tankering_fuel_g
 
-    #GENERATE PANDA DATAFRAME Data
-    flight_data = {'dept_ap':AP1.code, 'arrv_ap':AP2.code,'great_circle':distance, 'course':course, \
-            'climb_alt': climb_sect_alt, 'climb_tas':df.ix[altitude_prof].tas, \
-            'climb_time':climb_sect_time, 'climb_gs':climb_sect_gs, 'climb_distC':climb_sect_dist_calc, 'climb_distL':climb_sect_dist_lookup,\
-            'cruise_tas':cruise_sect_tas, 'cruise_timeC':cruise_sect_time_calc, 'cruise_timeL':cruise_sect_time_lookup, 'cruise_gs':cruise_sect_gs, \
-            'cruise_distC':cruise_sect_dist_calc, 'cruise_distL':cruise_sect_dist_lookup, 'flight_timeC':flight_time_calc, 'flight_timeL':flight_time_lookup, \
-            'min_fuel_req':leg_min_fuel_req, 'fuel_req':leg_fuel_req, 'fuel_req_weight':leg_fuel_req_lbs,'remaining_tank_gl':remaining_tank_gl,\
-            'zfw':weight_zero_fuel_weight,'weight_onramp':weight_onramp, 'weight_ontakeoff':weight_ontakeoff, 'weight_onlanding':weight_onlanding,'max_tankering_wgt':max_tankering_fuel_lbs, \
-            'max_tankering_fuel':max_tankering_fuel_g}
-    return flight_data
 
 #@@@@@@ END OF run_leg_sim @@@@@@
 
