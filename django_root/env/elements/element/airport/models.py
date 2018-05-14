@@ -5,6 +5,14 @@ from airport.airport_db import airports_df
 
 # Create your models here.
 class Airport(models.Model):
+    '''
+    Airport(id,code,name,LAT,LONG,ALT)
+
+    Additional Functions
+    - fetchData(iata)
+    - fetch_ap_ext() -- Query www.airport-data.com API
+    - fetch_ap()   -- From internal database
+    '''
     code = models.CharField(max_length=5)
     name = models.CharField(max_length=50)
     LAT = models.FloatField()

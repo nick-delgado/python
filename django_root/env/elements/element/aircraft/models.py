@@ -57,6 +57,7 @@ class Aircraft(models.Model):
         global df_climb_perf
         global df_cruise_perf
         RESULT = pd.DataFrame(columns=['alt','time','fuel'])
+        possible_alt_lvl = []
         # Run various simulations/calculations
         #...for a given distance and heading
         #...to figure out which cruising altitude 
@@ -64,31 +65,32 @@ class Aircraft(models.Model):
         #...Course between [000-179] >> Odd Flight Levels (ie. FL230,FL250,FL270)
         #...Course between [180-359] >> Even Flight Levels (ie. FL220,FL240,FL260)
         #
-        # Eliminate altitudes in climb/cruise performance chart based on whether
-        #...the course is to the East or to the West
-        use_odd_alt = True if (round(course,0) < 180) else False
-        #print(use_odd_alt)
         # Eliminate altitudes in climb/cruise performance chart if the overall
         #...distance is less than twice the climbing distance
         #cutoff_dist = dist/2 #TODO WHICH ONE TO SELECT
+        # 
         cutoff_dist = dist
         #...now need to check what max altitude that would correlate to in the climb chart
         #...or generate a new DataFrame with the filtered rows that exclude max travel dist
         filter_climb_perf = df_climb_perf.loc[df_climb_perf['dist'] < cutoff_dist]
-        #print(filter_climb_perf)
         max_climbing_alt_lvl = int(filter_climb_perf.loc[filter_climb_perf.index[-1]]['alt'])
-        #print(max_climbing_alt_lvl)
         #...make sure that the simulation doesn't go above the maximum allowed altitude set
         #...by the operator for this aircraft
-        #max_cruising_alt_lvl = 410 
         #...which of the altitude levels is the least? Use that as the limit
         limit_alt_lvl = max_climbing_alt_lvl if (max_climbing_alt_lvl-max_cruising_alt_lvl < 0) else max_cruising_alt_lvl
         filter_climb_perf = df_climb_perf.loc[df_climb_perf['alt'] <= limit_alt_lvl]
         #print(filter_climb_perf)
         filter_cruise_perf = df_cruise_perf.loc[df_cruise_perf['alt'] <= limit_alt_lvl]
-        #print(limit_alt_lvl)
-        # Remove altitude levels based on whether they are odd or even and based on course
-        possible_alt_lvl = []
+        #print(filter_cruise_perf)
+        #...now get descent chart performance
+        filter_descent_perf = df_descent_perf.loc[df_descent_perf['alt']<=limit_alt_lvl]
+        #...now we have a table with the list of all the altitudes up to either (1) the max climbing altitude set by the 
+        #...operator (ie.FL 410) or (2) the max climbing altitude based on max distance needed to climb to a certain altitude
+        #...(ie. if total distance is 21nm, then we can only climb up to the max FL 150)
+        #
+        # Eliminate altitudes in climb/cruise performance chart based on whether
+        #...the course is to the East or to the West
+        use_odd_alt = True if (round(course,0) < 180) else False
         for alt_lvl in range(30,limit_alt_lvl+10,10):
             if (alt_lvl%20 == 0): #...the altitude is even
                 if use_odd_alt: #...and we are using odd altitudes
@@ -101,66 +103,60 @@ class Aircraft(models.Model):
                 else:
                     pass
 
+        # Now we have the possible altitude levels that we can travel on
         # Remaining altitude profiles will be simulated, both climbing and cruise
-        #Now we have the possible altitude levels that we can travel on
-        #...compute all the possible flight times and see which one results in the shortest
-        shortest_flight_time = 100000000000000 # ..an insanely large number (mins)
-        least_cost = 10000000000000000
-        least_fuel_usage = 10000000000000
-        optimal_altitude = 0
-        #print(possible_alt_lvl)
 
         e6b = E6B() # Initialize E6B computing utility
         for alt_lvl in possible_alt_lvl:
-            # CLIMB SECTION
+
+            # CLIMB SECTION -- LOOKUP
             sim_climb_time = float(filter_climb_perf.loc[filter_climb_perf['alt']==alt_lvl]['time'])
             sim_climb_dist = float(filter_climb_perf.loc[filter_climb_perf['alt']==alt_lvl]['dist'])
             sim_climb_fuel = float(filter_climb_perf.loc[filter_climb_perf['alt']==alt_lvl]['fuel'])
+
+            # DESCENT SECTION -- LOOKUP
+            sim_descent_time = float(filter_descent_perf.loc[filter_descent_perf['alt']==alt_lvl]['time'])
+            sim_descent_dist = float(filter_descent_perf.loc[filter_descent_perf['alt']==alt_lvl]['dist'])
+            sim_descent_fuel = float(filter_descent_perf.loc[filter_descent_perf['alt']==alt_lvl]['fuel'])
             
-            #CRUISE SECTION
-            sim_cruise_dist = dist - sim_climb_dist
-            sim_cruise_tas = float(filter_cruise_perf.loc[filter_cruise_perf['alt']==alt_lvl]['tas'])
-            sim_cruise_flow = float(filter_cruise_perf.loc[filter_cruise_perf['alt']==alt_lvl]['flow'])
-            sim_cruise_wca = e6b.wind_correction_angle(course, sim_cruise_tas, \
-                    float(winds_df.loc[winds_df['alt']==alt_lvl]['dir']), \
-                    float(winds_df.loc[winds_df['alt']==alt_lvl]['speed']))
-            sim_cruise_true = sim_cruise_wca + course
-            sim_cruise_gs = e6b.ground_speed(course, sim_cruise_tas, \
-                    float(winds_df.loc[winds_df['alt']==alt_lvl]['dir']), \
-                    float(winds_df.loc[winds_df['alt']==alt_lvl]['speed']), \
-                    sim_cruise_true) 
-            sim_cruise_time_hr = float(sim_cruise_dist / sim_cruise_gs)
-            sim_cruise_fuel = round(sim_cruise_flow * sim_cruise_time_hr,2)
-            sim_cruise_time = int(round(sim_cruise_time_hr*60,2))
-
-            #OVERALL FLIGHT
-            sim_flight_time = float(round(sim_climb_time + sim_cruise_time, 2))
-            sim_total_fuel = float(round(sim_climb_fuel + sim_cruise_fuel, 2))
-            #...based on the total fuel, can the flight be made in one leg?
-            #...check wether the fuel weight in lbs, to gallons, is more than
-            #...max fuel capacity-reserve fuel qty (in lbs.)
-            # ie. fuel_lbs < (251 gal x 6.77lbs/gal) - (45 gal x 6.77 lbs/gal)
-
-            #...if not, return false
-            #...now that we have the total flight time and total fuel consumed at that altitude do a cost indexing
-            sim_flight_time_cost = float(round(sim_flight_time * time_cost_min,2))
-            sim_total_fuel_cost = float(round(sim_total_fuel * fuel_cost_lbs,2))
-            sim_cost = float(round(sim_flight_time_cost + sim_total_fuel_cost,2))
-            #...now that we have the flight time and total fuel consumed then append it to the table
-            ROW = pd.Series([alt_lvl,sim_flight_time, sim_total_fuel], ['alt', 'time', 'fuel'])
-            RESULT = RESULT.append(ROW,ignore_index=True)
+            # Eliminate altitudes for which the distance to climb + distance to descent is greater than the total dist
+            if (sim_climb_dist + sim_descent_dist < dist):
+                #CRUISE SECTION -- COMPUTE
+                sim_cruise_dist = dist - sim_climb_dist - sim_descent_dist
+                sim_cruise_tas = float(filter_cruise_perf.loc[filter_cruise_perf['alt']==alt_lvl]['tas'])
+                sim_cruise_flow = float(filter_cruise_perf.loc[filter_cruise_perf['alt']==alt_lvl]['flow'])
+                sim_cruise_wca = e6b.wind_correction_angle(course, sim_cruise_tas, \
+                        float(winds_df.loc[winds_df['alt']==alt_lvl]['dir']), \
+                        float(winds_df.loc[winds_df['alt']==alt_lvl]['speed']))
+                sim_cruise_wca = 0
+                sim_cruise_true = sim_cruise_wca + course
+                sim_cruise_gs = e6b.ground_speed(course, sim_cruise_tas, \
+                        float(winds_df.loc[winds_df['alt']==alt_lvl]['dir']), \
+                        float(winds_df.loc[winds_df['alt']==alt_lvl]['speed']), \
+                        sim_cruise_true) 
+                sim_cruise_gs = e6b.ground_speed(course, sim_cruise_tas, \
+                        float(winds_df.loc[winds_df['alt']==alt_lvl]['dir']), \
+                        0, \
+                        sim_cruise_true) 
+                sim_cruise_time_hr = float(sim_cruise_dist / sim_cruise_gs)
+                sim_cruise_fuel = round(sim_cruise_flow * sim_cruise_time_hr,2)
+                sim_cruise_time = int(round(sim_cruise_time_hr*60,2))
 
 
-            if (sim_cost <= least_cost):
-                least_cost = sim_cost
-                shortest_flight_time = sim_flight_time
-                least_fuel_usage = sim_total_fuel
-                optimal_altitude = alt_lvl
+                #OVERALL FLIGHT
+                sim_flight_time = float(round(sim_climb_time + sim_cruise_time + sim_descent_time, 2))
+                sim_total_fuel = float(round(sim_climb_fuel + sim_cruise_fuel + sim_descent_fuel, 2))
+                #...based on the total fuel, can the flight be made in one leg?
+                #...check wether the fuel weight in lbs, to gallons, is more than
+                #...max fuel capacity-reserve fuel qty (in lbs.)
+                # ie. fuel_lbs < (251 gal x 6.77lbs/gal) - (45 gal x 6.77 lbs/gal)
 
-            #print("[ALT "+str(alt_lvl)+"] (Climb: "+ str(sim_climb_time) + "min | "+str(sim_climb_dist)+"nm | "+str(round(sim_climb_fuel,2))+"lbs) / "\
-            #        +"(Cruise: "+str(sim_cruise_time)+"min | "+str(sim_cruise_dist)+"nm | "+str(sim_cruise_fuel)+"lbs | "\
-            #        +str(sim_cruise_tas)+"nmph) \n     ===> "+str(sim_flight_time) + "min  \n     ===> "+str(sim_total_fuel)+" lbs" \
-            #        +"\n    ==========>> COST: "+str(sim_cost)) 
+                #...if not, return false
 
-        #print("RECOMMENDED ALTITUDE: " + str(optimal_altitude) + "  FLIGHT TIME="+str(shortest_flight_time)+"min  >  FUEL BURNED: "+str(least_fuel_usage))
+                #...now that we have the flight time and total fuel consumed then append it to the table
+                ROW = pd.Series([alt_lvl,sim_flight_time, sim_total_fuel, sim_cruise_gs, sim_climb_time, sim_cruise_time,sim_descent_time],\
+                       ['alt', 'time', 'fuel','cruise_gs','climb_time','cruise_time','desc_time'])
+                RESULT = RESULT.append(ROW,ignore_index=True)
+                #----END OF FOR LOOP ---
+
         return RESULT

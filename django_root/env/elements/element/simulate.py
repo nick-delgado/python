@@ -87,15 +87,18 @@ def run_leg_sim(AP1, AP2, AC, CREW, PAYLOAD):
     sim_climb_cruise_chart['time_cost'] = sim_climb_cruise_chart.apply(lambda row: row.time * 13.33, axis=1)
     sim_climb_cruise_chart['fuel_cost'] = sim_climb_cruise_chart.apply(lambda row: row.fuel * 1.16, axis=1)
     sim_climb_cruise_chart['total_cost'] = sim_climb_cruise_chart.apply(lambda row: row.time_cost + row.fuel_cost, axis=1)
-
+    sim_climb_cruise_chart['dept'] = "CHA"
+    sim_climb_cruise_chart['arrv'] = AP2.code
+    sim_climb_cruise_chart['dist'] = distance
+    sim_climb_cruise_chart['course'] = course
+    
     #...now select the row with the lowest total cost...that will be the 
     #...most cost effective altitude
+    print(sim_climb_cruise_chart)
     sim_selected = sim_climb_cruise_chart.loc[sim_climb_cruise_chart['total_cost'] == sim_climb_cruise_chart['total_cost'].min()]
     
+    print("\n\n-----------------")
     print(sim_selected)
-    #for index,sim_result in sim_climb_cruise_chart.iterrows():
-        #sim_result['time_cost'] = sim_result
-    #    print(sim_result)
     fuel = sim_selected['fuel']
     leg_min_fuel_req = int(fuel)/AC.fuel_weight
     fuel_reserve_lbs = 45 * AC.fuel_weight #...calculate the weight of the reserve fuel
@@ -185,6 +188,9 @@ def sim():
     dfA.loc[18] = run_leg_sim(AP1,Airport.objects.get(code__exact='KRUE'),AC,CREW,PAYLOAD)
     dfA.loc[19] = run_leg_sim(AP1,Airport.objects.get(code__exact='KAMA'),AC,CREW,PAYLOAD)
     dfA.loc[20] = run_leg_sim(AP1,Airport.objects.get(code__exact='KAPA'),AC,CREW,PAYLOAD)
+
+    #OTHERS
+    dfA.loc[21] = run_leg_sim(AP1,Airport.objects.get(code__exact='KAUO'),AC,CREW,PAYLOAD)
 
 #(hour, mins) = mins_to_hr_min(flight_time)
 
