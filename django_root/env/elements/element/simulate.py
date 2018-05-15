@@ -61,15 +61,14 @@ def load_aircraft(AC, pilots=[], pax=[], pax_bag=[] ):
 #run the simulations with orig, dept, aircraft, and payload (whether estimative or true)
 #this will give us the total payload on the a/c and so we can figure out tankering
 
-def run_leg_sim(AP1, AP2, AC, CREW, PAYLOAD):
-    #### CALCULATE FLIGHT TIME BASED ON NEW MODEL AND CALCULATIONS
+def run_leg_sim(AP1, AP2, AC, CREW, PAYLOAD, CRITERIA=[]):
     # FACTUAL INFORMATION
     course = round(e6b.true_course(AP1.coord, AP2.coord),2) #Calculate course with E6B helper functions
     distance = round(great_circle(AP1.coord, AP2.coord).nm, 2) #Calculate distance with great_circle function from GeoPy Python package
-    #df - pandas data frame with csv data from T.F.D.C @ ISA chart
     max_altitude = 410 # GET aircraft max climbing altitude based on operator
     global SWDF_may
-    sim_climb_cruise_chart = AC.calc_performances(distance, course, max_altitude, SWDF_may)
+    #ASK THE AIRCRAFT(S) TO RUN THE SIMULATIONS AT DIFFERENT ALTITUDES
+    sim_result_chart = AC.calc_performances(distance, course, max_altitude, SWDF_may)
 
     #...At this point we have a DataFrame with the list of different flight levels and their respective flight time and fuel consumption
     # __________________________
@@ -83,22 +82,22 @@ def run_leg_sim(AP1, AP2, AC, CREW, PAYLOAD):
 
     # Can this flight be done with only one tank or will it have to have a fuel stop
 
-    # ...now we need to selected the optimal flight plan/altitude that will be the most cost effective
-    sim_climb_cruise_chart['time_cost'] = sim_climb_cruise_chart.apply(lambda row: row.time * 13.33, axis=1)
-    sim_climb_cruise_chart['fuel_cost'] = sim_climb_cruise_chart.apply(lambda row: row.fuel * 1.16, axis=1)
-    sim_climb_cruise_chart['total_cost'] = sim_climb_cruise_chart.apply(lambda row: row.time_cost + row.fuel_cost, axis=1)
-    sim_climb_cruise_chart['dept'] = "CHA"
-    sim_climb_cruise_chart['arrv'] = AP2.code
-    sim_climb_cruise_chart['dist'] = distance
-    sim_climb_cruise_chart['course'] = course
-    
-    #...now select the row with the lowest total cost...that will be the 
-    #...most cost effective altitude
-    print(sim_climb_cruise_chart)
-    sim_selected = sim_climb_cruise_chart.loc[sim_climb_cruise_chart['total_cost'] == sim_climb_cruise_chart['total_cost'].min()]
-    
+    # ...now we need to select the optimal flight plan/altitude that will be the most cost effective
+    sim_result_chart['time_cost'] = sim_result_chart.apply(lambda row: row.time * 13.33, axis=1)
+    sim_result_chart['fuel_cost'] = sim_result_chart.apply(lambda row: row.fuel * 1.16, axis=1)
+    sim_result_chart['total_cost'] = sim_result_chart.apply(lambda row: row.time_cost + row.fuel_cost, axis=1)
+    sim_result_chart['dept'] = "CHA"
+    sim_result_chart['arrv'] = AP2.code
+    sim_result_chart['dist'] = distance
+    sim_result_chart['course'] = course
+    print(sim_result_chart)
+
+    #...now select the row with the lowest total cost...that will be the most cost effective altitude
+    sim_selected = sim_result_chart.loc[sim_result_chart['total_cost'] == sim_result_chart['total_cost'].min()]
     print("\n\n-----------------")
     print(sim_selected)
+
+    # WEIGHT/BALANCE AND FUEL
     fuel = sim_selected['fuel']
     leg_min_fuel_req = int(fuel)/AC.fuel_weight
     fuel_reserve_lbs = 45 * AC.fuel_weight #...calculate the weight of the reserve fuel
@@ -140,11 +139,15 @@ def run_leg_sim(AP1, AP2, AC, CREW, PAYLOAD):
     remaining_tank_lbs = remaining_tank_gl * AC.fuel_weight # ...how many gallons more could be added in gallons
 
     #...the least of the 3 fuel payloads is the maximum tankering (in lbs) that can be added to the leg
-    max_tankering_fuel_lbs = min([avail_fuel_payload_atdept, avail_fuel_payload_atarrv,remaining_tank_lbs])
+    max_tankering_fuel_lbs = min([avail_fuel_payload_atdept, avail_fuel_payload_atarrv, remaining_tank_lbs])
     if (max_tankering_fuel_lbs < 0 ): max_tankering_fuel_lbs = 0
     #...now calculate gallons based on fuel
     max_tankering_fuel_g = max_tankering_fuel_lbs / AC.fuel_weight
+    print(max_tankering_fuel_g)
+    sim_selected['RAMP'] = weight_onramp
+    sim_selected['max_tankering_fuel'] = max_tankering_fuel_g
     #avail_tankering_fuel_g = AC.max_fuel_capacity - max_tankering_fuel_g
+    return sim_selected
 
 
 #@@@@@@ END OF run_leg_sim @@@@@@
@@ -154,43 +157,68 @@ def run_leg_sim(AP1, AP2, AC, CREW, PAYLOAD):
 ##########################
 
 # Prepare Panda DataFrame for adding computations to it
-dfA = pd.DataFrame(columns=['dept_ap','arrv_ap','great_circle','course', \
-        'climb_alt', 'climb_tas','climb_time','climb_gs', 'climb_distC','climb_distL', \
-        'cruise_tas','cruise_timeC','cruise_timeL','cruise_gs','cruise_distC','cruise_distL', \
-        'flight_timeC', 'flight_timeL', 'min_fuel_req', 'fuel_req', \
-        'fuel_req_weight','remaining_tank_gl', 'zfw', 'weight_onramp', 'weight_ontakeoff','weight_onlanding','max_tankering_wgt', 'max_tankering_fuel'])
+#dfA = pd.DataFrame(columns=['dept_ap','arrv_ap','great_circle','course', \
+#        'climb_alt', 'climb_tas','climb_time','climb_gs', 'climb_distC','climb_distL', \
+#        'cruise_tas','cruise_timeC','cruise_timeL','cruise_gs','cruise_distC','cruise_distL', \
+#        'flight_timeC', 'flight_timeL', 'min_fuel_req', 'fuel_req', \
+#        'fuel_req_weight','remaining_tank_gl', 'zfw', 'weight_onramp', 'weight_ontakeoff','weight_onlanding','max_tankering_wgt', 'max_tankering_fuel'])
 
-def sim():
-    #SOUTH BOUND
-    dfA.loc[0] = run_leg_sim(AP1,Airport.objects.get(code__exact='KRMG'),AC,CREW,PAYLOAD)
-    dfA.loc[1] = run_leg_sim(AP1,Airport.objects.get(code__exact='KASN'),AC,CREW,PAYLOAD)
-    dfA.loc[2] = run_leg_sim(AP1,Airport.objects.get(code__exact='11A'),AC,CREW,PAYLOAD)
-    dfA.loc[3] = run_leg_sim(AP1,Airport.objects.get(code__exact='KINF'),AC,CREW,PAYLOAD)
-    dfA.loc[4] = run_leg_sim(AP1,Airport.objects.get(code__exact='MUSC'),AC,CREW,PAYLOAD)
-    
-    #EAST BOUND
-    dfA.loc[5] = run_leg_sim(AP1,Airport.objects.get(code__exact='K1A3'),AC,CREW,PAYLOAD)
-    dfA.loc[6] = run_leg_sim(AP1,Airport.objects.get(code__exact='K24A'),AC,CREW,PAYLOAD)
-    dfA.loc[7] = run_leg_sim(AP1,Airport.objects.get(code__exact='KCLT'),AC,CREW,PAYLOAD)
-    dfA.loc[8] = run_leg_sim(AP1,Airport.objects.get(code__exact='KEWN'),AC,CREW,PAYLOAD)
-    dfA.loc[9] = run_leg_sim(AP1,Airport.objects.get(code__exact='TXKF'),AC,CREW,PAYLOAD)
-    #NORTH BOUND
-    dfA.loc[10] = run_leg_sim(AP1,Airport.objects.get(code__exact='KCSV'),AC,CREW,PAYLOAD)
-    dfA.loc[11] = run_leg_sim(AP1,Airport.objects.get(code__exact='KEKQ'),AC,CREW,PAYLOAD)
-    dfA.loc[12] = run_leg_sim(AP1,Airport.objects.get(code__exact='KSDF'),AC,CREW,PAYLOAD)
-    dfA.loc[13] = run_leg_sim(AP1,Airport.objects.get(code__exact='KSBN'),AC,CREW,PAYLOAD)
-    dfA.loc[14] = run_leg_sim(AP1,Airport.objects.get(code__exact='CYLD'),AC,CREW,PAYLOAD)
+dfA = pd.DataFrame()
+#def sim():
+#    global dfA
+#SOUTH BOUND
+dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='KRMG'),AC,CREW,PAYLOAD), ignore_index = True)
+dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='KASN'),AC,CREW,PAYLOAD), ignore_index = True)
+dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='11A'),AC,CREW,PAYLOAD), ignore_index = True)
+dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='KINF'),AC,CREW,PAYLOAD), ignore_index = True)
+dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='MUSC'),AC,CREW,PAYLOAD), ignore_index = True)
+#dfA.loc[0] = run_leg_sim(AP1,Airport.objects.get(code__exact='KRMG'),AC,CREW,PAYLOAD)
+#dfA.loc[1] = run_leg_sim(AP1,Airport.objects.get(code__exact='KASN'),AC,CREW,PAYLOAD)
+#dfA.loc[2] = run_leg_sim(AP1,Airport.objects.get(code__exact='11A'),AC,CREW,PAYLOAD)
+#dfA.loc[3] = run_leg_sim(AP1,Airport.objects.get(code__exact='KINF'),AC,CREW,PAYLOAD)
+#dfA.loc[4] = run_leg_sim(AP1,Airport.objects.get(code__exact='MUSC'),AC,CREW,PAYLOAD)
 
-    #WEST BOUND
-    dfA.loc[15] = run_leg_sim(AP1,Airport.objects.get(code__exact='KUOS'),AC,CREW,PAYLOAD)
-    dfA.loc[16] = run_leg_sim(AP1,Airport.objects.get(code__exact='K2M2'),AC,CREW,PAYLOAD)
-    dfA.loc[17] = run_leg_sim(AP1,Airport.objects.get(code__exact='KMEM'),AC,CREW,PAYLOAD)
-    dfA.loc[18] = run_leg_sim(AP1,Airport.objects.get(code__exact='KRUE'),AC,CREW,PAYLOAD)
-    dfA.loc[19] = run_leg_sim(AP1,Airport.objects.get(code__exact='KAMA'),AC,CREW,PAYLOAD)
-    dfA.loc[20] = run_leg_sim(AP1,Airport.objects.get(code__exact='KAPA'),AC,CREW,PAYLOAD)
+#    #EAST BOUND
+dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='K1A3'),AC,CREW,PAYLOAD), ignore_index = True)
+dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='K24A'),AC,CREW,PAYLOAD), ignore_index = True)
+dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='KCLT'),AC,CREW,PAYLOAD), ignore_index = True)
+dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='KEWN'),AC,CREW,PAYLOAD), ignore_index = True)
+dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='TXKF'),AC,CREW,PAYLOAD), ignore_index = True)
+#    dfA.loc[5] = run_leg_sim(AP1,Airport.objects.get(code__exact='K1A3'),AC,CREW,PAYLOAD)
+#    dfA.loc[6] = run_leg_sim(AP1,Airport.objects.get(code__exact='K24A'),AC,CREW,PAYLOAD)
+#    dfA.loc[7] = run_leg_sim(AP1,Airport.objects.get(code__exact='KCLT'),AC,CREW,PAYLOAD)
+#    dfA.loc[8] = run_leg_sim(AP1,Airport.objects.get(code__exact='KEWN'),AC,CREW,PAYLOAD)
+#    dfA.loc[9] = run_leg_sim(AP1,Airport.objects.get(code__exact='TXKF'),AC,CREW,PAYLOAD)
 
-    #OTHERS
-    dfA.loc[21] = run_leg_sim(AP1,Airport.objects.get(code__exact='KAUO'),AC,CREW,PAYLOAD)
+#    #NORTH BOUND
+dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='KCSV'),AC,CREW,PAYLOAD), ignore_index = True)
+dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='KEKQ'),AC,CREW,PAYLOAD), ignore_index = True)
+dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='KSDF'),AC,CREW,PAYLOAD), ignore_index = True)
+dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='KSBN'),AC,CREW,PAYLOAD), ignore_index = True)
+dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='CYLD'),AC,CREW,PAYLOAD), ignore_index = True)
+#    dfA.loc[10] = run_leg_sim(AP1,Airport.objects.get(code__exact='KCSV'),AC,CREW,PAYLOAD)
+#    dfA.loc[11] = run_leg_sim(AP1,Airport.objects.get(code__exact='KEKQ'),AC,CREW,PAYLOAD)
+#    dfA.loc[12] = run_leg_sim(AP1,Airport.objects.get(code__exact='KSDF'),AC,CREW,PAYLOAD)
+#    dfA.loc[13] = run_leg_sim(AP1,Airport.objects.get(code__exact='KSBN'),AC,CREW,PAYLOAD)
+#    dfA.loc[14] = run_leg_sim(AP1,Airport.objects.get(code__exact='CYLD'),AC,CREW,PAYLOAD)
+#
+#    #WEST BOUND
+dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='KUOS'),AC,CREW,PAYLOAD), ignore_index = True)
+dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='K2M2'),AC,CREW,PAYLOAD), ignore_index = True)
+dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='KMEM'),AC,CREW,PAYLOAD), ignore_index = True)
+dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='KRUE'),AC,CREW,PAYLOAD), ignore_index = True)
+dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='KAMA'),AC,CREW,PAYLOAD), ignore_index = True)
+dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='KAPA'),AC,CREW,PAYLOAD), ignore_index = True)
+#    dfA.loc[15] = run_leg_sim(AP1,Airport.objects.get(code__exact='KUOS'),AC,CREW,PAYLOAD)
+#    dfA.loc[16] = run_leg_sim(AP1,Airport.objects.get(code__exact='K2M2'),AC,CREW,PAYLOAD)
+#    dfA.loc[17] = run_leg_sim(AP1,Airport.objects.get(code__exact='KMEM'),AC,CREW,PAYLOAD)
+#    dfA.loc[18] = run_leg_sim(AP1,Airport.objects.get(code__exact='KRUE'),AC,CREW,PAYLOAD)
+#    dfA.loc[19] = run_leg_sim(AP1,Airport.objects.get(code__exact='KAMA'),AC,CREW,PAYLOAD)
+#    dfA.loc[20] = run_leg_sim(AP1,Airport.objects.get(code__exact='KAPA'),AC,CREW,PAYLOAD)
+
+#OTHERS
+#dfA.loc[21] = run_leg_sim(AP1,Airport.objects.get(code__exact='KAUO'),AC,CREW,PAYLOAD)
+dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='KAUO'),AC,CREW,PAYLOAD), ignore_index = True)
 
 #(hour, mins) = mins_to_hr_min(flight_time)
 

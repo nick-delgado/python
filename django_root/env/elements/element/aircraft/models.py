@@ -17,7 +17,6 @@ class Aircraft(models.Model):
     serial = models.CharField(max_length=40)
     classification = models.CharField(max_length=40)
 
-
     # WEIGHT & BALANCE
     max_fuel_capacity = models.IntegerField(default=130)
     cruising_fuel_burn_gph = models.IntegerField(default=60)
@@ -31,7 +30,6 @@ class Aircraft(models.Model):
 
     fuel_weight = models.FloatField(default=6.77)
     # AIRPORT REQUIREMENTS
-    
     
     # PERFORMANCE
     taxi_fuel = models.IntegerField(default=4.5)
@@ -128,20 +126,22 @@ class Aircraft(models.Model):
                 sim_cruise_wca = e6b.wind_correction_angle(course, sim_cruise_tas, \
                         float(winds_df.loc[winds_df['alt']==alt_lvl]['dir']), \
                         float(winds_df.loc[winds_df['alt']==alt_lvl]['speed']))
-                sim_cruise_wca = 0
+                #sim_cruise_wca = e6b.wind_correction_angle(course, sim_cruise_tas, \
+                #        270, \
+                #        40)
+                #sim_cruise_wca = 0
                 sim_cruise_true = sim_cruise_wca + course
                 sim_cruise_gs = e6b.ground_speed(course, sim_cruise_tas, \
                         float(winds_df.loc[winds_df['alt']==alt_lvl]['dir']), \
                         float(winds_df.loc[winds_df['alt']==alt_lvl]['speed']), \
                         sim_cruise_true) 
-                sim_cruise_gs = e6b.ground_speed(course, sim_cruise_tas, \
-                        float(winds_df.loc[winds_df['alt']==alt_lvl]['dir']), \
-                        0, \
-                        sim_cruise_true) 
+                #sim_cruise_gs = e6b.ground_speed(course, sim_cruise_tas, \
+                #        270, \
+                #        40, \
+                #        sim_cruise_true) 
                 sim_cruise_time_hr = float(sim_cruise_dist / sim_cruise_gs)
                 sim_cruise_fuel = round(sim_cruise_flow * sim_cruise_time_hr,2)
                 sim_cruise_time = int(round(sim_cruise_time_hr*60,2))
-
 
                 #OVERALL FLIGHT
                 sim_flight_time = float(round(sim_climb_time + sim_cruise_time + sim_descent_time, 2))
@@ -160,3 +160,6 @@ class Aircraft(models.Model):
                 #----END OF FOR LOOP ---
 
         return RESULT
+
+    def to_json(self):
+        pass
