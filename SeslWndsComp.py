@@ -95,28 +95,64 @@ LON360 = float(ds_u.lon[LON360_ix])
 NORM_LONG = ( (LON360 + 180) % 360 ) - 180
     
 
+LEVEL_MB_ix = 3 # This translates to 700 millibars which is roughly 10,000ft
+
+
 # ... now we start iterating over the different levels as well
-LEVEL_MB_ix = 3 # This translates to 700 millibars which is roughly
+for level_ix in range(0,5): 
+    level_ft = 145366.45 * ( 1 - ( ( ds_u.level[level_ix] / 1013.25 )**0.190284  ) ) 
+    #level_ft = 145366.45 * ( 1 - ( ( level_mb / 1013.25 )**0.190284  ) ) 
+    norm_level_ft = int(round(float(level_ft),0))  # Normalize levels to 1000 ft increments 1000,2000,...,18000,...43000
+    flight_level_ft = norm_level_ft / 100  # Convert altitude to Flight Level standard
 
-level_ft = 145366.45 * ( 1 - ( ( ds_u.level[LEVEL_MB_ix] / 1013.25 )**0.190284  ) ) 
-#level_ft = 145366.45 * ( 1 - ( ( level_mb / 1013.25 )**0.190284  ) ) 
-norm_level_ft = int(round(float(level_ft),0))  # Normalize levels to 1000 ft increments 1000,2000,...,18000,...43000
-flight_level_ft = norm_level_ft / 100  # Convert altitude to Flight Level standard
+    #zero out all arrays temporarily used for this level
+    RESULT_jan_u = np.array([])
+    RESULT_jan_v = np.array([])
+    RESULT_jan_wdir = np.array([])
+    RESULT_jan_wspd = np.array([])
+    for year_ct in range(0,NUM_YRS):
+        #month to month querying
+        # u-wind vector (monthly mean) for this particular lat,long,alt
+        u_vect = ds_u.uwnd[int(MONTH_jan_ix[year_ct]), level_ix, LAT90_ix, LON360_ix]
+        v_vect = ds_v.vwnd[int(MONTH_jan_ix[year_ct]), level_ix, LAT90_ix, LON360_ix]
+        # now.. we append it to the array which holds the mean for that month
+        RESULT_jan_u = np.append(RESULT_jan_u, u_vect)
+        RESULT_jan_v = np.append(RESULT_jan_v, v_vect)
+        # we need to calculate the mean of the angles 
+        wdir = ( 270 - round(math.degrees(math.atan2(- v_vect, - u_vect)),2)+180 ) % 360
+        wspd = round( (math.sqrt( (u_vect**2) + (v_vect**2) )) * 1.943844, 2)
+        RESULT_jan_wdir = np.append( RESULT_jan_wdir, wdir)
+        RESULT_jan_wspd = np.append( RESULT_jan_wspd, wspd)
+        print(str(norm_level_ft)+"ft = DIR: "+str(wdir) + " @ "+ str(wspd) + "   >  u,v = [ "+str(float(u_vect))+" , " + str(float(v_vect))+" ]")
 
-for year_ct in range(0,NUM_YRS):
-    #month to access
-    # u-wind vector (monthly mean) for this particular lat,long,alt
-    u_vect = ds_u.uwnd[int(MONTH_jan_ix[year_ct]), LEVEL_MB_ix, LAT90_ix, LON360_ix]
-    v_vect = ds_v.vwnd[int(MONTH_jan_ix[year_ct]), LEVEL_MB_ix, LAT90_ix, LON360_ix]
-    # now.. we append it to the array which holds the mean for that month
-    RESULT_jan_u = np.append(RESULT_jan_u, u_vect)
-    RESULT_jan_v = np.append(RESULT_jan_v, v_vect)
-    wdir = ( 270 - round(math.degrees(math.atan2(- v_vect, - u_vect)),2)+180 ) % 360
-    wspd = round( (math.sqrt( (u_vect**2) + (v_vect**2) )) * 1.943844, 2)
-    RESULT_jan_wdir_10000ft = np.append( RESULT_jan_wdir_10000ft, wdir)
-    RESULT_jan_wspd_10000ft = np.append( RESULT_jan_wspd_10000ft, wspd)
-    print("DIR: "+str(wdir) + " @ "+ str(wspd) + "   >  u,v = [ "+str(float(u_vect))+" , " + str(float(v_vect))+" ]")
+    wdir_avg = RESULT_jan_wdir.mean() # This is not going to work since we are dealing with a circular mean
+    sin_func = np.vectorize(lambda angle: math.sin( math.radians( angle ) ) )
+    cos_func = np.vectorize(lambda angle: math.cos( math.radians( angle ) ) )
+    RESULT_jan_wdir_sin = sin_func(RESULT_jan_wdir)
+    RESULT_jan_wdir_cos = cos_func(RESULT_jan_wdir)
+    wdir_mean = ( 270 - round( math.degrees( math.atan2(RESULT_jan_wdir_sin.mean(), RESULT_jan_wdir_cos.mean() ) ), 2) ) % 360
+    wdir_max = RESULT_jan_wdir.max()
+    wdir_min = RESULT_jan_wdir.min()
+    wdir_std = RESULT_jan_wdir.std()
+    wspd_avg = RESULT_jan_wspd.mean()
+    wspd_max = RESULT_jan_wspd.max()
+    wspd_min = RESULT_jan_wspd.min()
+    wspd_std = RESULT_jan_wspd.std()
+    print("--------WIND\n" +\
+            "AVG="+str(wdir_avg) + "\n"+ \
+            "MEAN="+str(wdir_mean) + "\n"+ \
+            "MAX="+str(wdir_max) + "\n"+ \
+            "MIN="+str(wdir_min) + "\n"+\
+            "RANGE="+str(wdir_max - wdir_min) + "\n"+\
+            "STD="+str(wdir_std) + "\n"\
+            )
+    print("--------SPEED\n" +\
+            "AVG="+str(wspd_avg) + "\n"+ \
+            "MAX="+str(wspd_max) + "\n"+ \
+            "MIN="+str(wspd_min) + "\n"+\
+            "RANGE="+str(wspd_max - wspd_min) + "\n"+\
+            "STD="+str(wspd_std) + "\n"\
+            )
 
-
-print(RESULT_jan_u)
-print(RESULT_jan_v)
+#print(RESULT_jan_u)
+#print(RESULT_jan_v)
