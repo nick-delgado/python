@@ -5,3 +5,4 @@
 [._]sw[a-p]
 
 .DS_Store
+*.nc
