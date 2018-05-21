@@ -252,8 +252,10 @@ for MONTH, data_id in MONTH_IX.items():
     # 33985 -> 38615   340,350,360,370,380
     # 38615 -> 44302   390,400,410,420,430,440
     # 44302 -> 51806   450,460
+    print('MONTH '+str(MONTH+1))
 
     print(FL)
+    print("\n")
     #print("FL400= "+str(fl400_dir)+" @ "+str(fl400_spd)+"knt")
     #print("FL500= "+str(fl500_dir)+" @ "+str(fl500_spd)+"knt")
 
