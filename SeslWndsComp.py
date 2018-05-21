@@ -1,6 +1,10 @@
 import numpy as np
+import pandas as pd
 import xarray as xr
 import math
+from scipy import interpolate
+
+
 
 ds_u = xr.open_dataset('uwnd.mon.mean.nc')
 
@@ -37,18 +41,6 @@ ds_temp = xr.open_dataset('air.mon.mean.nc')
 # so roughly 5 years
 # Start from 2017 backwards to include full-year monthly data (2018 only partial)
 
-MONTH_jan_ix = np.array([]) # this is the ix of all the January months over a 5 year gap which start at start=768
-MONTH_feb_ix = np.array([])
-MONTH_mar_ix = np.array([])
-MONTH_apr_ix = np.array([])
-MONTH_may_ix = np.array([])
-MONTH_jun_ix = np.array([])
-MONTH_jul_ix = np.array([])
-MONTH_aug_ix = np.array([])
-MONTH_sep_ix = np.array([])
-MONTH_oct_ix = np.array([])
-MONTH_nov_ix = np.array([])
-MONTH_dec_ix = np.array([])
 start = 828
 NUM_YRS = 10
 
@@ -71,31 +63,19 @@ MONTH_IX[8] = []
 MONTH_IX[9] = []
 MONTH_IX[10] = []
 MONTH_IX[11] = []
-for year_ct in range(0,NUM_YRS):
-    MONTH_IX[0] = MONTH_IX[0] + [ (start+0) - (12*year_ct) ]
-    MONTH_IX[1] = MONTH_IX[1] + [ (start+1) - (12*year_ct) ]
-    MONTH_IX[2] = MONTH_IX[2] + [ (start+2) - (12*year_ct) ]
-    MONTH_IX[3] = MONTH_IX[3] + [ (start+3) - (12*year_ct) ]
-    MONTH_IX[4] = MONTH_IX[4] + [ (start+4) - (12*year_ct) ]
-    MONTH_IX[5] = MONTH_IX[5] + [ (start+5) - (12*year_ct) ]
-    MONTH_IX[6] = MONTH_IX[6] + [ (start+6) - (12*year_ct) ]
-    MONTH_IX[7] = MONTH_IX[7] + [ (start+7) - (12*year_ct) ]
-    MONTH_IX[8] = MONTH_IX[8] + [ (start+8) - (12*year_ct) ]
-    MONTH_IX[9] = MONTH_IX[9] + [ (start+9) - (12*year_ct) ]
-    MONTH_IX[10] = MONTH_IX[10] + [ (start+10) - (12*year_ct) ]
-    MONTH_IX[11] = MONTH_IX[11] + [ (start+11) - (12*year_ct) ]
-    MONTH_jan_ix = np.append(MONTH_jan_ix, (start+0) - (12*year_ct) )
-    MONTH_feb_ix = np.append(MONTH_feb_ix, (start+1) - (12*year_ct) )
-    MONTH_mar_ix = np.append(MONTH_mar_ix, (start+2) - (12*year_ct) )
-    MONTH_apr_ix = np.append(MONTH_apr_ix, (start+3) - (12*year_ct) )
-    MONTH_may_ix = np.append(MONTH_may_ix, (start+4) - (12*year_ct) )
-    MONTH_jun_ix = np.append(MONTH_jun_ix, (start+5) - (12*year_ct) )
-    MONTH_jul_ix = np.append(MONTH_jul_ix, (start+6) - (12*year_ct) )
-    MONTH_aug_ix = np.append(MONTH_aug_ix, (start+7) - (12*year_ct) )
-    MONTH_sep_ix = np.append(MONTH_sep_ix, (start+8) - (12*year_ct) )
-    MONTH_oct_ix = np.append(MONTH_oct_ix, (start+9) - (12*year_ct) )
-    MONTH_nov_ix = np.append(MONTH_nov_ix, (start+10) - (12*year_ct) )
-    MONTH_dec_ix = np.append(MONTH_dec_ix, (start+11) - (12*year_ct) )
+for for_year in range(0,NUM_YRS):
+    MONTH_IX[0] = MONTH_IX[0] + [ (start+0) - (12*for_year) ]
+    MONTH_IX[1] = MONTH_IX[1] + [ (start+1) - (12*for_year) ]
+    MONTH_IX[2] = MONTH_IX[2] + [ (start+2) - (12*for_year) ]
+    MONTH_IX[3] = MONTH_IX[3] + [ (start+3) - (12*for_year) ]
+    MONTH_IX[4] = MONTH_IX[4] + [ (start+4) - (12*for_year) ]
+    MONTH_IX[5] = MONTH_IX[5] + [ (start+5) - (12*for_year) ]
+    MONTH_IX[6] = MONTH_IX[6] + [ (start+6) - (12*for_year) ]
+    MONTH_IX[7] = MONTH_IX[7] + [ (start+7) - (12*for_year) ]
+    MONTH_IX[8] = MONTH_IX[8] + [ (start+8) - (12*for_year) ]
+    MONTH_IX[9] = MONTH_IX[9] + [ (start+9) - (12*for_year) ]
+    MONTH_IX[10] = MONTH_IX[10] + [ (start+10) - (12*for_year) ]
+    MONTH_IX[11] = MONTH_IX[11] + [ (start+11) - (12*for_year) ]
 
     
 # Now we have the indeces of all the months for a range of years, separated per month
@@ -137,28 +117,39 @@ RESULT = np.array([])
 sin_func = np.vectorize(lambda angle: math.sin( math.radians( angle ) ) ) # function that will be applied to all the values
 cos_func = np.vectorize(lambda angle: math.cos( math.radians( angle ) ) ) # ...idem...
 
-# ... now we start iterating over the different levels as well
-for level_ix in range(1,12): # Go from about 2499ft to 51806ft
-    level_ft = 145366.45 * ( 1 - ( ( ds_u.level[level_ix] / 1013.25 )**0.190284  ) ) 
-    #level_ft = 145366.45 * ( 1 - ( ( level_mb / 1013.25 )**0.190284  ) ) 
-    norm_level_ft = int(round(float(level_ft),0))  # Normalize levels to 1000 ft increments 1000,2000,...,18000,...43000
-    flight_level_ft = norm_level_ft / 100  # Convert altitude to Flight Level standard
 
-    #ITERATE OVER EACH MONTH IN ONE OF THE YEARS
-    for month_ix, data_id in MONTH_IX.items():
-        #zero out all arrays temporarily used for this level
-        #RESULT_month_u = np.array([])
-        #RESULT_month_v = np.array([])
-        RESULT_month_wdir = np.array([])
-        RESULT_month_wspd = np.array([])
-        #...start with January and get the average seasonal winds over the last couple years
+RESULT_DATA = pd.DataFrame(columns=["lat","long","jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"])
+
+#ITERATE OVER EACH MONTH IN ONE OF THE YEARS
+
+######################
+##### PER MONTH ######
+#####################
+tmp_data = {} #TODO   move this line inside for MONTH loop
+for MONTH, data_id in MONTH_IX.items():
+    #START with January
+    tmp_data[MONTH] = {}
+    #zero out all arrays temporarily used for this level
+    #RESULT_month_u = np.array([])
+    #RESULT_month_v = np.array([])
+    RESULT_month_wdir = np.array([])
+    RESULT_month_wspd = np.array([])
+    #...start with January and get the average seasonal winds over the last couple years
+    # ... now we start iterating over the different levels as well
+    #####################
+    ##### LEVELS ########
+    #####################
+    for LEVEL in range(1,12): # Go from about 2499ft to 51806ft
+        level_ft = 145366.45 * ( 1 - ( ( ds_u.level[LEVEL] / 1013.25 )**0.190284  ) ) 
+        #level_ft = 145366.45 * ( 1 - ( ( level_mb / 1013.25 )**0.190284  ) ) 
+        norm_level_ft = int(round(float(level_ft),0))  # Normalize levels to 1000 ft increments 1000,2000,...,18000,...43000
+        flight_level_ft = norm_level_ft / 100  # Convert altitude to Flight Level standard
         # RESULT[lat][long][level][month]
-        for year_ct in range(0,NUM_YRS):
+        tmp_data[MONTH][norm_level_ft] = {}
+        for for_year in range(0,NUM_YRS):
             # u-wind vector (monthly mean) for this particular lat,long,alt
-            u_vect = ds_u.uwnd[int(MONTH_IX[month_ix][year_ct]), level_ix, LAT90_ix, LON360_ix]
-            v_vect = ds_v.vwnd[int(MONTH_IX[month_ix][year_ct]), level_ix, LAT90_ix, LON360_ix]
-            #v_vect = ds_v.vwnd[int(MONTH_jan_ix[year_ct]), level_ix, LAT90_ix, LON360_ix]
-            # now.. we append it to the array which holds the mean for that month
+            u_vect = ds_u.uwnd[int(MONTH_IX[MONTH][for_year]), LEVEL, LAT90_ix, LON360_ix]
+            v_vect = ds_v.vwnd[int(MONTH_IX[MONTH][for_year]), LEVEL, LAT90_ix, LON360_ix]
             #RESULT_month_u = np.append(RESULT_month_u, u_vect)
             #RESULT_month_v = np.append(RESULT_month_v, v_vect)
             # calculate wind direction for this particular month and place and altitude based on u/v vector
@@ -180,11 +171,11 @@ for level_ix in range(1,12): # Go from about 2499ft to 51806ft
             
             RESULT_month_wdir = np.append( RESULT_month_wdir, wdir_from)
             RESULT_month_wspd = np.append( RESULT_month_wspd, wspd)
-            print(str(norm_level_ft)+"ft "+str(year_ct)+" | "+str(month_ix)+"= wdir_from: "+str(wdir_from) + " -> wdir_to: "+str(wdir_to)+" @ "+ str(wspd) + "   >  u,v = [ "+str( round(float(u_vect),2) )+" , " + str(round(float(v_vect),2))+" ]")
+            #print(str(norm_level_ft)+"ft "+str(for_year)+" | "+str(MONTH)+"= wdir_from: "+str(wdir_from) + " -> wdir_to: "+str(wdir_to)+" @ "+ str(wspd) + "   >  u,v = [ "+str( round(float(u_vect),2) )+" , " + str(round(float(v_vect),2))+" ]")
+        # END OF -> for for_year ...
 
-        # We now have all the MONTHLY u/v vectors across YEARS for this LEVEL
         #-------------> WIND ANGLES
-        # MEAN OF ANGLES
+        # --- MEAN OF ANGLES
         RESULT_month_wdir_sin = sin_func(RESULT_month_wdir) # get the sines of each angle (in radians) and store it in numpy array for easy manipulation
         RESULT_month_wdir_cos = cos_func(RESULT_month_wdir) # get the cosines of each angle
         # now get the arctangent of the mean of the sines and cosines from the values calculated in the above 2 lines
@@ -197,24 +188,74 @@ for level_ix in range(1,12): # Go from about 2499ft to 51806ft
         wdir_min = RESULT_month_wdir.min()
         wdir_std = RESULT_month_wdir.std() 
         #------------> WIND SPEED
-        wspd_avg = RESULT_month_wspd.mean() # calculate the non-circular mean/average of the values in the array
+        wspd_avg = int(round(RESULT_month_wspd.mean(),0)) # calculate the non-circular mean/average of the values in the array
         wspd_max = RESULT_month_wspd.max()
         wspd_min = RESULT_month_wspd.min()
         wspd_std = RESULT_month_wspd.std()
-     
-        # ====== DEBUG ====
-        print("[[[[ "+str(norm_level_ft)+"ft  @ "+str(year_ct)+" "+str(month_ix)+" ]]]]")
-        print("--------WIND\n" +\
-                "MEAN="+str(wdir_mean) + "\n"+ \
-                "MAX="+str(wdir_max) + "\n"+ \
-                "MIN="+str(wdir_min) + "\n"+\
-                "RANGE="+str(wdir_max - wdir_min) + "\n"+\
-                "STD="+str(wdir_std) + "\n"\
-                )
-        print("--------SPEED\n" +\
-                "AVG="+str(wspd_avg) + "\n"+ \
-                "MAX="+str(wspd_max) + "\n"+ \
-                "MIN="+str(wspd_min) + "\n"+\
-                "RANGE="+str(wspd_max - wspd_min) + "\n"+\
-                "STD="+str(wspd_std) + "\n"\
-                )
+        #
+        #STORE
+        #...
+        tmp_data[MONTH][norm_level_ft] = {'dir':wdir_mean, 'spd':wspd_avg}
+        # ====== DEBUG ======
+        #print("[[[[ "+str(norm_level_ft)+"ft  @ "+str(MONTH)+" ]]]]")
+        #print("--------WIND\n" +\
+        #        "MEAN="+str(wdir_mean) + "\n"+ \
+        #        "MAX="+str(wdir_max) + "\n"+ \
+        #        "MIN="+str(wdir_min) + "\n"+\
+        #        "RANGE="+str(wdir_max - wdir_min) + "\n"+\
+        #        "STD="+str(wdir_std) + "\n"\
+        #        )
+        #print("--------SPEED\n" +\
+        #        "AVG="+str(wspd_avg) + "\n"+ \
+        #        "MAX="+str(wspd_max) + "\n"+ \
+        #        "MIN="+str(wspd_min) + "\n"+\
+        #        "RANGE="+str(wspd_max - wspd_min) + "\n"+\
+        #        "STD="+str(wspd_std) + "\n"\
+        #        )
+    # END OF ->  FOR LEVEL...
+    # ...
+    # ...at this point we have the average of January for altitudes from 2499ft to 51806ft at the collected millibar intervals
+    # ...now we can use the scipy interpolator function and start building the curated data for the monthly January seasonal winds
+    # 
+    # FIRST 2 DATA points
+    FL = {}
+    # 2499 -> 4779  20,30,40
+    xdata_alt = [ 2499 , 4779 ]
+    ydata_dir = [ tmp_data[MONTH][2499]['dir'] , tmp_data[MONTH][4779]['dir'] ]
+    dir_func = interpolate.interp1d(xdata_alt,ydata_dir)
+    ydata_spd = [ tmp_data[MONTH][2499]['spd'] , tmp_data[MONTH][4779]['spd'] ]
+    spd_func = interpolate.interp1d(xdata_alt,ydata_spd,)
+    for lvl in range(30,40+10,10):
+        FL[lvl] = { 'dir': round(float(dir_func(lvl*100)),2) , 'spd': round(float(spd_func(lvl*100)),2) }
+
+    # 4779 -> 9878   50,60,70,80,90
+    xdata_alt = [ 4779 , 9878 ]
+    ydata_dir = [ tmp_data[MONTH][4779]['dir'] , tmp_data[MONTH][9878]['dir'] ]
+    dir_func = interpolate.interp1d(xdata_alt,ydata_dir)
+    ydata_spd = [ tmp_data[MONTH][4779]['spd'] , tmp_data[MONTH][9878]['spd'] ]
+    spd_func = interpolate.interp1d(xdata_alt,ydata_spd,)
+    for lvl in range(50,90+10,10):
+        FL[lvl] = { 'dir': round(float(dir_func(lvl*100)),2) , 'spd': round(float(spd_func(lvl*100)),2) }
+
+    # 9878 -> 13795   100,110,120,130
+    xdata_alt = [ 9878 , 13795 ]
+    ydata_dir = [ tmp_data[MONTH][9878]['dir'] , tmp_data[MONTH][13795]['dir'] ]
+    dir_func = interpolate.interp1d(xdata_alt,ydata_dir)
+    ydata_spd = [ tmp_data[MONTH][9878]['spd'] , tmp_data[MONTH][13795]['spd'] ]
+    spd_func = interpolate.interp1d(xdata_alt,ydata_spd,)
+    for lvl in range(100,130+10,10):
+        FL[lvl] = { 'dir': round(float(dir_func(lvl*100)),2) , 'spd': round(float(spd_func(lvl*100)),2) }
+    # 13795 -> 18281   140,150,160,170,180
+    # 18281 -> 23564   190,200,210,220,230
+    # 23564 -> 30053   240,250,260,270,280,290,300
+    # 30053 -> 33985   310,320,330
+    # 33985 -> 38615   340,350,360,370,380
+    # 38615 -> 44302   390,400,410,420,430,440
+    # 44302 -> 51806   450,460
+
+    print(FL)
+    #print("FL400= "+str(fl400_dir)+" @ "+str(fl400_spd)+"knt")
+    #print("FL500= "+str(fl500_dir)+" @ "+str(fl500_spd)+"knt")
+
+    
+# END OF -> FOR MONTH ...
