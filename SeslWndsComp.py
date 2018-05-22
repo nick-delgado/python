@@ -45,8 +45,6 @@ start = 828
 NUM_YRS = 10
 
 ################# RESULT ###############
-RESULT_month_u = np.array([])
-RESULT_month_v = np.array([])
 RESULT_month_wdir_10000ft = np.array([])
 RESULT_month_wspd_10000ft = np.array([])
 
@@ -130,8 +128,6 @@ for MONTH, data_id in MONTH_IX.items():
     #START with January
     tmp_data[MONTH] = {}
     #zero out all arrays temporarily used for this level
-    #RESULT_month_u = np.array([])
-    #RESULT_month_v = np.array([])
     RESULT_month_wdir = np.array([])
     RESULT_month_wspd = np.array([])
     #...start with January and get the average seasonal winds over the last couple years
@@ -139,7 +135,7 @@ for MONTH, data_id in MONTH_IX.items():
     #####################
     ##### LEVELS ########
     #####################
-    for LEVEL in range(1,12): # Go from about 2499ft to 51806ft
+    for LEVEL in range(1,13): # Go from about 2499ft to 51806ft
         level_ft = 145366.45 * ( 1 - ( ( ds_u.level[LEVEL] / 1013.25 )**0.190284  ) ) 
         #level_ft = 145366.45 * ( 1 - ( ( level_mb / 1013.25 )**0.190284  ) ) 
         norm_level_ft = int(round(float(level_ft),0))  # Normalize levels to 1000 ft increments 1000,2000,...,18000,...43000
@@ -150,8 +146,6 @@ for MONTH, data_id in MONTH_IX.items():
             # u-wind vector (monthly mean) for this particular lat,long,alt
             u_vect = ds_u.uwnd[int(MONTH_IX[MONTH][for_year]), LEVEL, LAT90_ix, LON360_ix]
             v_vect = ds_v.vwnd[int(MONTH_IX[MONTH][for_year]), LEVEL, LAT90_ix, LON360_ix]
-            #RESULT_month_u = np.append(RESULT_month_u, u_vect)
-            #RESULT_month_v = np.append(RESULT_month_v, v_vect)
             # calculate wind direction for this particular month and place and altitude based on u/v vector
             # REFERENCES: 
             # math.atan2(y/x)  ---   NOTE: Y / X
@@ -171,7 +165,9 @@ for MONTH, data_id in MONTH_IX.items():
             
             RESULT_month_wdir = np.append( RESULT_month_wdir, wdir_from)
             RESULT_month_wspd = np.append( RESULT_month_wspd, wspd)
-            #print(str(norm_level_ft)+"ft "+str(for_year)+" | "+str(MONTH)+"= wdir_from: "+str(wdir_from) + " -> wdir_to: "+str(wdir_to)+" @ "+ str(wspd) + "   >  u,v = [ "+str( round(float(u_vect),2) )+" , " + str(round(float(v_vect),2))+" ]")
+            #print(str(norm_level_ft)+"ft "+str(for_year)+" | "+str(MONTH)+"= wdir_from: "+str(wdir_from) + \
+                    #" -> wdir_to: "+str(wdir_to)+" @ "+ str(wspd) + "   >  u,v = [ "+str( round(float(u_vect),2) )+\
+                    #" , " + str(round(float(v_vect),2))+" ]")
         # END OF -> for for_year ...
 
         #-------------> WIND ANGLES
@@ -246,18 +242,71 @@ for MONTH, data_id in MONTH_IX.items():
     for lvl in range(100,130+10,10):
         FL[lvl] = { 'dir': round(float(dir_func(lvl*100)),2) , 'spd': round(float(spd_func(lvl*100)),2) }
     # 13795 -> 18281   140,150,160,170,180
+    xdata_alt = [ 13795 , 18281 ]
+    ydata_dir = [ tmp_data[MONTH][13795]['dir'] , tmp_data[MONTH][18281]['dir'] ]
+    dir_func = interpolate.interp1d(xdata_alt,ydata_dir)
+    ydata_spd = [ tmp_data[MONTH][13795]['spd'] , tmp_data[MONTH][18281]['spd'] ]
+    spd_func = interpolate.interp1d(xdata_alt,ydata_spd,)
+    for lvl in range(140,180+10,10):
+        FL[lvl] = { 'dir': round(float(dir_func(lvl*100)),2) , 'spd': round(float(spd_func(lvl*100)),2) }
     # 18281 -> 23564   190,200,210,220,230
+    xdata_alt = [ 18281 , 23564 ]
+    ydata_dir = [ tmp_data[MONTH][18281]['dir'] , tmp_data[MONTH][23564]['dir'] ]
+    dir_func = interpolate.interp1d(xdata_alt,ydata_dir)
+    ydata_spd = [ tmp_data[MONTH][18281]['spd'] , tmp_data[MONTH][23564]['spd'] ]
+    spd_func = interpolate.interp1d(xdata_alt,ydata_spd,)
+    for lvl in range(190,230+10,10):
+        FL[lvl] = { 'dir': round(float(dir_func(lvl*100)),2) , 'spd': round(float(spd_func(lvl*100)),2) }
     # 23564 -> 30053   240,250,260,270,280,290,300
+    xdata_alt = [ 23564 , 30053 ]
+    ydata_dir = [ tmp_data[MONTH][23564]['dir'] , tmp_data[MONTH][30053]['dir'] ]
+    dir_func = interpolate.interp1d(xdata_alt,ydata_dir)
+    ydata_spd = [ tmp_data[MONTH][23564]['spd'] , tmp_data[MONTH][30053]['spd'] ]
+    spd_func = interpolate.interp1d(xdata_alt,ydata_spd,)
+    for lvl in range(240,300+10,10):
+        FL[lvl] = { 'dir': round(float(dir_func(lvl*100)),2) , 'spd': round(float(spd_func(lvl*100)),2) }
     # 30053 -> 33985   310,320,330
+    xdata_alt = [ 30053 , 33985 ]
+    ydata_dir = [ tmp_data[MONTH][30053]['dir'] , tmp_data[MONTH][33985]['dir'] ]
+    dir_func = interpolate.interp1d(xdata_alt,ydata_dir)
+    ydata_spd = [ tmp_data[MONTH][30053]['spd'] , tmp_data[MONTH][33985]['spd'] ]
+    spd_func = interpolate.interp1d(xdata_alt,ydata_spd,)
+    for lvl in range(310,330+10,10):
+        FL[lvl] = { 'dir': round(float(dir_func(lvl*100)),2) , 'spd': round(float(spd_func(lvl*100)),2) }
     # 33985 -> 38615   340,350,360,370,380
+    xdata_alt = [ 33985 , 38615 ]
+    ydata_dir = [ tmp_data[MONTH][33985]['dir'] , tmp_data[MONTH][38615]['dir'] ]
+    dir_func = interpolate.interp1d(xdata_alt,ydata_dir)
+    ydata_spd = [ tmp_data[MONTH][33985]['spd'] , tmp_data[MONTH][38615]['spd'] ]
+    spd_func = interpolate.interp1d(xdata_alt,ydata_spd,)
+    for lvl in range(340,380+10,10):
+        FL[lvl] = { 'dir': round(float(dir_func(lvl*100)),2) , 'spd': round(float(spd_func(lvl*100)),2) }
     # 38615 -> 44302   390,400,410,420,430,440
-    # 44302 -> 51806   450,460
-    print('MONTH '+str(MONTH+1))
+    xdata_alt = [ 38615 , 44302 ]
+    ydata_dir = [ tmp_data[MONTH][38615]['dir'] , tmp_data[MONTH][44302]['dir'] ]
+    dir_func = interpolate.interp1d(xdata_alt,ydata_dir)
+    ydata_spd = [ tmp_data[MONTH][38615]['spd'] , tmp_data[MONTH][44302]['spd'] ]
+    spd_func = interpolate.interp1d(xdata_alt,ydata_spd,)
+    for lvl in range(390,440+10,10):
+        FL[lvl] = { 'dir': round(float(dir_func(lvl*100)),2) , 'spd': round(float(spd_func(lvl*100)),2) }
+    # 44302 -> 51806   450,460,470,480,490,500,510
+    xdata_alt = [ 44302 , 51806 ]
+    ydata_dir = [ tmp_data[MONTH][44302]['dir'] , tmp_data[MONTH][51806]['dir'] ]
+    dir_func = interpolate.interp1d(xdata_alt,ydata_dir)
+    ydata_spd = [ tmp_data[MONTH][44302]['spd'] , tmp_data[MONTH][51806]['spd'] ]
+    spd_func = interpolate.interp1d(xdata_alt,ydata_spd,)
+    for lvl in range(450,510+10,10):
+        FL[lvl] = { 'dir': round(float(dir_func(lvl*100)),2) , 'spd': round(float(spd_func(lvl*100)),2) }
+    # 51806 -> 57945   520,530
+    xdata_alt = [ 51806 , 57945 ]
+    ydata_dir = [ tmp_data[MONTH][51806]['dir'] , tmp_data[MONTH][57945]['dir'] ]
+    dir_func = interpolate.interp1d(xdata_alt,ydata_dir)
+    ydata_spd = [ tmp_data[MONTH][51806]['spd'] , tmp_data[MONTH][57945]['spd'] ]
+    spd_func = interpolate.interp1d(xdata_alt,ydata_spd,)
+    for lvl in range(520,530+10,10):
+        FL[lvl] = { 'dir': round(float(dir_func(lvl*100)),2) , 'spd': round(float(spd_func(lvl*100)),2) }
 
-    print(FL)
-    print("\n")
-    #print("FL400= "+str(fl400_dir)+" @ "+str(fl400_spd)+"knt")
-    #print("FL500= "+str(fl500_dir)+" @ "+str(fl500_spd)+"knt")
-
+    df = {}
+    df[MONTH] = pd.DataFrame(data=FL)
     
 # END OF -> FOR MONTH ...
