@@ -164,13 +164,13 @@ RESULT_DATA = pd.DataFrame(columns=["lat","long","jan","feb","mar","apr","may","
 ##################
 ###### LAT #######
 ##################
-for LAT in range(20,24):
+for LAT in range(0,72+1):
     
     NORM_LAT = float(ds_u.lat[LAT])
     #####################
     ####### LONG ########
     #####################
-    for LONG in range(108,114):
+    for LONG in range(0,143+1):
 
         LON360 = float(ds_u.lon[LONG])
         NORM_LONG = ( (LON360 + 180) % 360 ) - 180
