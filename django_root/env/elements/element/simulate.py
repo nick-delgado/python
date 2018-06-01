@@ -5,6 +5,7 @@ from geopy.distance import EARTH_RADIUS
 from geopy.point import Point
 from importcsv import *
 from tmp_winds import *
+from winds_aloft import Winds
 import math
 import requests
 from utils import E6B
@@ -42,10 +43,16 @@ class CREW (object):
 class PAYLOAD(object):
     weight = 0
 
+class DATE(object):
+    month = None
+
 CREW = CREW()
 CREW.weight = 250
 PAYLOAD = PAYLOAD()
 PAYLOAD.weight = 800
+
+DATE = DATE()
+DATE.month = 'jun'
 e6b = E6B() # Init E6B core computing functions tool
 
 #midpoint = e6b.midpoint(AP1.coord, AP2.coord)
@@ -61,14 +68,16 @@ def load_aircraft(AC, pilots=[], pax=[], pax_bag=[] ):
 #run the simulations with orig, dept, aircraft, and payload (whether estimative or true)
 #this will give us the total payload on the a/c and so we can figure out tankering
 
-def run_leg_sim(AP1, AP2, AC, CREW, PAYLOAD, CRITERIA=[]):
+def run_leg_sim(AP1, AP2, AC, CREW, PAYLOAD, DATE, CRITERIA=[]):
     # FACTUAL INFORMATION
     course = round(e6b.true_course(AP1.coord, AP2.coord),2) #Calculate course with E6B helper functions
     distance = round(great_circle(AP1.coord, AP2.coord).nm, 2) #Calculate distance with great_circle function from GeoPy Python package
     max_altitude = 410 # GET aircraft max climbing altitude based on operator
     global SWDF_may
+    # WINDS ALOFTS
+    winds_json = Winds(AP1.coord, DATE.month).get_seasonal_wind()
     #ASK THE AIRCRAFT(S) TO RUN THE SIMULATIONS AT DIFFERENT ALTITUDES
-    sim_result_chart = AC.calc_performances(distance, course, max_altitude, SWDF_may)
+    sim_result_chart = AC.calc_performances(distance, course, max_altitude, winds_json)
 
     #...At this point we have a DataFrame with the list of different flight levels and their respective flight time and fuel consumption
     # __________________________
@@ -167,58 +176,58 @@ dfA = pd.DataFrame()
 #def sim():
 #    global dfA
 #SOUTH BOUND
-dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='KRMG'),AC,CREW,PAYLOAD), ignore_index = True)
-dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='KASN'),AC,CREW,PAYLOAD), ignore_index = True)
-dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='11A'),AC,CREW,PAYLOAD), ignore_index = True)
-dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='KINF'),AC,CREW,PAYLOAD), ignore_index = True)
-dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='MUSC'),AC,CREW,PAYLOAD), ignore_index = True)
-#dfA.loc[0] = run_leg_sim(AP1,Airport.objects.get(code__exact='KRMG'),AC,CREW,PAYLOAD)
-#dfA.loc[1] = run_leg_sim(AP1,Airport.objects.get(code__exact='KASN'),AC,CREW,PAYLOAD)
-#dfA.loc[2] = run_leg_sim(AP1,Airport.objects.get(code__exact='11A'),AC,CREW,PAYLOAD)
-#dfA.loc[3] = run_leg_sim(AP1,Airport.objects.get(code__exact='KINF'),AC,CREW,PAYLOAD)
-#dfA.loc[4] = run_leg_sim(AP1,Airport.objects.get(code__exact='MUSC'),AC,CREW,PAYLOAD)
+dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='KRMG'),AC,CREW,PAYLOAD, DATE), ignore_index = True)
+dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='KASN'),AC,CREW,PAYLOAD, DATE), ignore_index = True)
+dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='11A'),AC,CREW,PAYLOAD, DATE), ignore_index = True)
+dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='KINF'),AC,CREW,PAYLOAD, DATE), ignore_index = True)
+dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='MUSC'),AC,CREW,PAYLOAD, DATE), ignore_index = True)
+#dfA.loc[0] = run_leg_sim(AP1,Airport.objects.get(code__exact='KRMG'),AC,CREW,PAYLOAD, DATE)
+#dfA.loc[1] = run_leg_sim(AP1,Airport.objects.get(code__exact='KASN'),AC,CREW,PAYLOAD, DATE)
+#dfA.loc[2] = run_leg_sim(AP1,Airport.objects.get(code__exact='11A'),AC,CREW,PAYLOAD, DATE)
+#dfA.loc[3] = run_leg_sim(AP1,Airport.objects.get(code__exact='KINF'),AC,CREW,PAYLOAD, DATE)
+#dfA.loc[4] = run_leg_sim(AP1,Airport.objects.get(code__exact='MUSC'),AC,CREW,PAYLOAD, DATE)
 
 #    #EAST BOUND
-dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='K1A3'),AC,CREW,PAYLOAD), ignore_index = True)
-dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='K24A'),AC,CREW,PAYLOAD), ignore_index = True)
-dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='KCLT'),AC,CREW,PAYLOAD), ignore_index = True)
-dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='KEWN'),AC,CREW,PAYLOAD), ignore_index = True)
-dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='TXKF'),AC,CREW,PAYLOAD), ignore_index = True)
-#    dfA.loc[5] = run_leg_sim(AP1,Airport.objects.get(code__exact='K1A3'),AC,CREW,PAYLOAD)
-#    dfA.loc[6] = run_leg_sim(AP1,Airport.objects.get(code__exact='K24A'),AC,CREW,PAYLOAD)
-#    dfA.loc[7] = run_leg_sim(AP1,Airport.objects.get(code__exact='KCLT'),AC,CREW,PAYLOAD)
-#    dfA.loc[8] = run_leg_sim(AP1,Airport.objects.get(code__exact='KEWN'),AC,CREW,PAYLOAD)
-#    dfA.loc[9] = run_leg_sim(AP1,Airport.objects.get(code__exact='TXKF'),AC,CREW,PAYLOAD)
+dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='K1A3'),AC,CREW,PAYLOAD, DATE), ignore_index = True)
+dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='K24A'),AC,CREW,PAYLOAD, DATE), ignore_index = True)
+dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='KCLT'),AC,CREW,PAYLOAD, DATE), ignore_index = True)
+dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='KEWN'),AC,CREW,PAYLOAD, DATE), ignore_index = True)
+dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='TXKF'),AC,CREW,PAYLOAD, DATE), ignore_index = True)
+#    dfA.loc[5] = run_leg_sim(AP1,Airport.objects.get(code__exact='K1A3'),AC,CREW,PAYLOAD, DATE)
+#    dfA.loc[6] = run_leg_sim(AP1,Airport.objects.get(code__exact='K24A'),AC,CREW,PAYLOAD, DATE)
+#    dfA.loc[7] = run_leg_sim(AP1,Airport.objects.get(code__exact='KCLT'),AC,CREW,PAYLOAD, DATE)
+#    dfA.loc[8] = run_leg_sim(AP1,Airport.objects.get(code__exact='KEWN'),AC,CREW,PAYLOAD, DATE)
+#    dfA.loc[9] = run_leg_sim(AP1,Airport.objects.get(code__exact='TXKF'),AC,CREW,PAYLOAD, DATE)
 
 #    #NORTH BOUND
-dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='KCSV'),AC,CREW,PAYLOAD), ignore_index = True)
-dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='KEKQ'),AC,CREW,PAYLOAD), ignore_index = True)
-dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='KSDF'),AC,CREW,PAYLOAD), ignore_index = True)
-dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='KSBN'),AC,CREW,PAYLOAD), ignore_index = True)
-dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='CYLD'),AC,CREW,PAYLOAD), ignore_index = True)
-#    dfA.loc[10] = run_leg_sim(AP1,Airport.objects.get(code__exact='KCSV'),AC,CREW,PAYLOAD)
-#    dfA.loc[11] = run_leg_sim(AP1,Airport.objects.get(code__exact='KEKQ'),AC,CREW,PAYLOAD)
-#    dfA.loc[12] = run_leg_sim(AP1,Airport.objects.get(code__exact='KSDF'),AC,CREW,PAYLOAD)
-#    dfA.loc[13] = run_leg_sim(AP1,Airport.objects.get(code__exact='KSBN'),AC,CREW,PAYLOAD)
-#    dfA.loc[14] = run_leg_sim(AP1,Airport.objects.get(code__exact='CYLD'),AC,CREW,PAYLOAD)
+dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='KCSV'),AC,CREW,PAYLOAD, DATE), ignore_index = True)
+dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='KEKQ'),AC,CREW,PAYLOAD, DATE), ignore_index = True)
+dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='KSDF'),AC,CREW,PAYLOAD, DATE), ignore_index = True)
+dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='KSBN'),AC,CREW,PAYLOAD, DATE), ignore_index = True)
+dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='CYLD'),AC,CREW,PAYLOAD, DATE), ignore_index = True)
+#    dfA.loc[10] = run_leg_sim(AP1,Airport.objects.get(code__exact='KCSV'),AC,CREW,PAYLOAD, DATE)
+#    dfA.loc[11] = run_leg_sim(AP1,Airport.objects.get(code__exact='KEKQ'),AC,CREW,PAYLOAD, DATE)
+#    dfA.loc[12] = run_leg_sim(AP1,Airport.objects.get(code__exact='KSDF'),AC,CREW,PAYLOAD, DATE)
+#    dfA.loc[13] = run_leg_sim(AP1,Airport.objects.get(code__exact='KSBN'),AC,CREW,PAYLOAD, DATE)
+#    dfA.loc[14] = run_leg_sim(AP1,Airport.objects.get(code__exact='CYLD'),AC,CREW,PAYLOAD, DATE)
 #
 #    #WEST BOUND
-dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='KUOS'),AC,CREW,PAYLOAD), ignore_index = True)
-dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='K2M2'),AC,CREW,PAYLOAD), ignore_index = True)
-dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='KMEM'),AC,CREW,PAYLOAD), ignore_index = True)
-dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='KRUE'),AC,CREW,PAYLOAD), ignore_index = True)
-dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='KAMA'),AC,CREW,PAYLOAD), ignore_index = True)
-dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='KAPA'),AC,CREW,PAYLOAD), ignore_index = True)
-#    dfA.loc[15] = run_leg_sim(AP1,Airport.objects.get(code__exact='KUOS'),AC,CREW,PAYLOAD)
-#    dfA.loc[16] = run_leg_sim(AP1,Airport.objects.get(code__exact='K2M2'),AC,CREW,PAYLOAD)
-#    dfA.loc[17] = run_leg_sim(AP1,Airport.objects.get(code__exact='KMEM'),AC,CREW,PAYLOAD)
-#    dfA.loc[18] = run_leg_sim(AP1,Airport.objects.get(code__exact='KRUE'),AC,CREW,PAYLOAD)
-#    dfA.loc[19] = run_leg_sim(AP1,Airport.objects.get(code__exact='KAMA'),AC,CREW,PAYLOAD)
-#    dfA.loc[20] = run_leg_sim(AP1,Airport.objects.get(code__exact='KAPA'),AC,CREW,PAYLOAD)
+dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='KUOS'),AC,CREW,PAYLOAD, DATE), ignore_index = True)
+dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='K2M2'),AC,CREW,PAYLOAD, DATE), ignore_index = True)
+dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='KMEM'),AC,CREW,PAYLOAD, DATE), ignore_index = True)
+dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='KRUE'),AC,CREW,PAYLOAD, DATE), ignore_index = True)
+dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='KAMA'),AC,CREW,PAYLOAD, DATE), ignore_index = True)
+dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='KAPA'),AC,CREW,PAYLOAD, DATE), ignore_index = True)
+#    dfA.loc[15] = run_leg_sim(AP1,Airport.objects.get(code__exact='KUOS'),AC,CREW,PAYLOAD, DATE)
+#    dfA.loc[16] = run_leg_sim(AP1,Airport.objects.get(code__exact='K2M2'),AC,CREW,PAYLOAD, DATE)
+#    dfA.loc[17] = run_leg_sim(AP1,Airport.objects.get(code__exact='KMEM'),AC,CREW,PAYLOAD, DATE)
+#    dfA.loc[18] = run_leg_sim(AP1,Airport.objects.get(code__exact='KRUE'),AC,CREW,PAYLOAD, DATE)
+#    dfA.loc[19] = run_leg_sim(AP1,Airport.objects.get(code__exact='KAMA'),AC,CREW,PAYLOAD, DATE)
+#    dfA.loc[20] = run_leg_sim(AP1,Airport.objects.get(code__exact='KAPA'),AC,CREW,PAYLOAD, DATE)
 
 #OTHERS
-#dfA.loc[21] = run_leg_sim(AP1,Airport.objects.get(code__exact='KAUO'),AC,CREW,PAYLOAD)
-dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='KAUO'),AC,CREW,PAYLOAD), ignore_index = True)
+#dfA.loc[21] = run_leg_sim(AP1,Airport.objects.get(code__exact='KAUO'),AC,CREW,PAYLOAD, DATE)
+dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='KAUO'),AC,CREW,PAYLOAD, DATE), ignore_index = True)
 
 #(hour, mins) = mins_to_hr_min(flight_time)
 

@@ -2,6 +2,7 @@ from django.db import models
 import pandas as pd
 from aircraft.tmp_perf_chart import *
 from utils import E6B
+import json
 
 
 class Aircraft(models.Model):
@@ -40,7 +41,7 @@ class Aircraft(models.Model):
     #cruise_chart = models.JSONField()
 
 
-    def calc_performances(self, dist, course, MAX_CRUISING_ALT_LVL, WINDS_DF, time_cost_min=13.33, fuel_cost_lbs=1.16):
+    def calc_performances(self, dist, course, MAX_CRUISING_ALT_LVL, WINDS_JSON, time_cost_min=13.33, fuel_cost_lbs=1.16):
         '''
         NOTE
             This function takes simulates the aircraft flight time and fuel consumption based on arguments provided
@@ -130,16 +131,21 @@ class Aircraft(models.Model):
                 sim_cruise_dist = dist - sim_climb_dist - sim_descent_dist
                 sim_cruise_tas = float(filtered_cruise_perf.loc[filtered_cruise_perf['alt']==alt_lvl]['tas'])
                 sim_cruise_flow = float(filtered_cruise_perf.loc[filtered_cruise_perf['alt']==alt_lvl]['flow'])
+                # WIND
+                #sim_cruise_winds_dir = float(WINDS_DF.loc[WINDS_DF['alt']==alt_lvl]['dir'])
+                sim_cruise_winds_dir = WINDS_JSON[str(alt_lvl)]['dir']
+                sim_cruise_winds_speed = WINDS_JSON[str(alt_lvl)]['spd']
+                #sim_cruise_winds_speed = float(WINDS_DF.loc[WINDS_DF['alt']==alt_lvl]['speed'])
                 sim_cruise_wca = e6b.wind_correction_angle(course, sim_cruise_tas, \
-                        float(WINDS_DF.loc[WINDS_DF['alt']==alt_lvl]['dir']), \
-                        float(WINDS_DF.loc[WINDS_DF['alt']==alt_lvl]['speed']))
+                        sim_cruise_winds_dir, \
+                        sim_cruise_winds_speed)
                 #sim_cruise_wca = e6b.wind_correction_angle(course, sim_cruise_tas, \
                 #        270, \
                 #        40)
                 sim_cruise_true = sim_cruise_wca + course
                 sim_cruise_gs = e6b.ground_speed(course, sim_cruise_tas, \
-                        float(WINDS_DF.loc[WINDS_DF['alt']==alt_lvl]['dir']), \
-                        float(WINDS_DF.loc[WINDS_DF['alt']==alt_lvl]['speed']), \
+                        sim_cruise_winds_dir, \
+                        sim_cruise_winds_speed, \
                         sim_cruise_true) 
                 #sim_cruise_gs = e6b.ground_speed(course, sim_cruise_tas, \
                 #        270, \
@@ -162,8 +168,9 @@ class Aircraft(models.Model):
                 #--------------------
 
                 #...now that we have the flight time and total fuel consumed then append it to the table
-                ROW = pd.Series([alt_lvl,sim_flight_time, sim_total_fuel, sim_cruise_gs, sim_climb_time, sim_cruise_time,sim_descent_time],\
-                       ['alt', 'time', 'fuel','cruise_gs','climb_time','cruise_time','desc_time'])
+                ROW = pd.Series([alt_lvl,sim_flight_time, sim_total_fuel, sim_cruise_gs, \
+                        sim_cruise_winds_dir, sim_cruise_winds_speed, sim_climb_time, sim_cruise_time,sim_descent_time],\
+                       ['alt', 'time', 'fuel','cruise_gs','winds_dir','winds_spd','climb_time','cruise_time','desc_time'])
                 RESULT = RESULT.append(ROW,ignore_index=True)
             #----END OF if
         #----END OF for alt_lvl LOOP ---
