@@ -231,6 +231,6 @@ dfA = dfA.append(run_leg_sim(AP1,Airport.objects.get(code__exact='KAUO'),AC,CREW
 
 #(hour, mins) = mins_to_hr_min(flight_time)
 
-def export_csv():
-    dfA.to_csv('result-simulation.csv',float_format='%.2f')
+def export_csv(filename):
+    dfA.to_csv(filename, float_format='%.2f')
 
